@@ -51,12 +51,16 @@
   }
 
   const todosTimes = CONFIG.times.flatMap((g) => g.itens);
+  const marcaTime = (t) => t.escudo
+    ? `<img src="${t.escudo}" alt="" width="28" height="28" loading="lazy">`
+    : `<i style="background:linear-gradient(135deg,${t.cores[0]} 50%,${t.cores[1]} 50%)"></i>`;
   function aplicarTime(id) {
     const time = todosTimes.find((t) => t.id === id);
     const raiz = document.documentElement.style;
     if (!time) {
       ["--acento", "--acento-2", "--acento-texto", "--acento-claro"].forEach((v) => raiz.removeProperty(v));
       $(".time-nome").textContent = "Seu time";
+      $(".time-amostra").innerHTML = "";
     } else {
       let [c1, c2] = time.cores;
       // cor principal muito escura some no fundo: usa a secundária como destaque
@@ -66,6 +70,7 @@
       raiz.setProperty("--acento-texto", contraste(c1, "#111111") >= contraste(c1, "#ffffff") ? "#111111" : "#ffffff");
       raiz.setProperty("--acento-claro", legivel(c1));
       $(".time-nome").textContent = time.nome;
+      $(".time-amostra").innerHTML = time.escudo ? `<img src="${time.escudo}" alt="">` : "";
     }
     prefs.gravar("hattrick_time", time ? time.id : null);
     document.querySelectorAll(".time").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.time === (time?.id || ""))));
@@ -73,9 +78,9 @@
 
   function montarTimes() {
     const lista = $("#lista-times");
-    lista.innerHTML = `<div class="times"><button type="button" class="time" data-time=""><i style="background:linear-gradient(135deg,#ffb31a 50%,#1d5c34 50%)"></i>Cores da casa</button></div>` +
+    lista.innerHTML = `<div class="times"><button type="button" class="time" data-time=""><img src="img/logo-hattrick.png" alt="" width="28" height="28">Cores da Hat-Trick</button></div>` +
       CONFIG.times.map((g) => `<h3 class="grupo-times">${g.grupo}</h3><div class="times">${g.itens.map((t) =>
-        `<button type="button" class="time" data-time="${t.id}"><i style="background:linear-gradient(135deg,${t.cores[0]} 50%,${t.cores[1]} 50%)"></i>${esc(t.nome)}</button>`).join("")}</div>`).join("");
+        `<button type="button" class="time" data-time="${t.id}">${marcaTime(t)}${esc(t.nome)}</button>`).join("")}</div>`).join("");
     lista.addEventListener("click", (e) => {
       const b = e.target.closest(".time");
       if (!b) return;
@@ -125,7 +130,11 @@
 
     $("#inspiracoes").innerHTML = CONFIG.inspiracoes.map((i) => `
       <li class="insp">
-        <div class="insp-foto">${icone(i.esporte)}<span>Foto de um corte feito na Hat-Trick</span></div>
+        <figure class="insp-foto">
+          <img src="${i.foto}" alt="${esc(i.ref)}, com ${esc(i.estilo.toLowerCase())}" width="480" height="600" loading="lazy" decoding="async">
+          <span class="insp-esporte">${icone(i.esporte)}</span>
+          <figcaption>Foto: <a href="${i.fonte}" target="_blank" rel="noopener">${esc(i.credito)}</a></figcaption>
+        </figure>
         <div class="insp-txt">
           <small>Estilo ${esc(i.ref)}</small>
           <b>${esc(i.estilo)}</b>
@@ -143,7 +152,7 @@
     $("#horarios").innerHTML = ordem.map((d) => {
       const e = CONFIG.expediente[d];
       const cls = d === hoje ? ' class="hoje"' : "";
-      return `<dt${cls}>${DIAS[d]}${d === hoje ? " (hoje)" : ""}</dt><dd${cls}>${e ? `${e.abre} – ${e.fecha}` : "Fechado"}</dd>`;
+      return `<dt${cls}>${DIAS[d][0].toUpperCase() + DIAS[d].slice(1)}${d === hoje ? " (hoje)" : ""}</dt><dd${cls}>${e ? `${e.abre} – ${e.fecha}` : "Fechado"}</dd>`;
     }).join("");
     const msg = encodeURIComponent("Olá! Vim pelo app da Hat-Trick e queria marcar um horário.");
     $("#link-whats").href = `https://wa.me/${CONFIG.whatsapp}?text=${msg}`;
@@ -384,7 +393,7 @@
 
     $("#temporada").innerHTML = `
       <div class="quadra">
-        <div class="quadra-topo"><p class="rotulo">Temporada ${new Date().getFullYear()}</p><p class="rotulo">${premios ? `${premios} 🏆` : ""}</p></div>
+        <div class="quadra-topo"><p class="rotulo">Temporada ${new Date().getFullYear()}</p><p class="rotulo">${premios ? `<span class="trofeus" aria-label="${premios} cortes grátis ganhos">${premios}<svg aria-hidden="true"><use href="#i-trofeu-cheio"/></svg></span>` : ""}</p></div>
         <div class="quadra-pontos" aria-label="${cestas} de ${meta} cestas">${String(cestas).padStart(2, "0")}<span> / ${meta}</span></div>
         <div class="arremessos" aria-hidden="true">${Array.from({ length: meta }, (_, i) => `<i class="${i < cestas ? "cesta" : ""}"></i>`).join("")}</div>
         <p>${cestas === 0 && !premios ? "Marque seu primeiro corte pelo app e comece a pontuar." : `Faltam <strong>${meta - cestas}</strong> para o corte grátis.`}<br>

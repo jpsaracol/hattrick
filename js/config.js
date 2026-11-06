@@ -42,37 +42,45 @@ const CONFIG = {
   },
 
   // "Seu time": o cliente escolhe e o app ganha as cores dele.
+  // Escudos: das páginas dos clubes na Wikipédia (marcas dos seus donos).
   times: [
     { grupo: "Futebol", itens: [
-      { id: "xavante", nome: "Brasil de Pelotas", cores: ["#d71920", "#111111"] },
-      { id: "lobao", nome: "Pelotas", cores: ["#f5c400", "#0a3d91"] },
-      { id: "gremio", nome: "Grêmio", cores: ["#0d80bf", "#111111"] },
-      { id: "inter", nome: "Internacional", cores: ["#e5050f", "#ffffff"] },
-      { id: "flamengo", nome: "Flamengo", cores: ["#c4161c", "#111111"] },
-      { id: "corinthians", nome: "Corinthians", cores: ["#f2f2f2", "#111111"] },
-      { id: "palmeiras", nome: "Palmeiras", cores: ["#1a8a3a", "#ffffff"] },
+      { id: "xavante", nome: "Brasil de Pelotas", cores: ["#d71920", "#111111"], escudo: "assets/escudos/xavante.png" },
+      { id: "lobao", nome: "Pelotas", cores: ["#f5c400", "#0a3d91"], escudo: "assets/escudos/lobao.png" },
+      { id: "gremio", nome: "Grêmio", cores: ["#0d80bf", "#111111"], escudo: "assets/escudos/gremio.png" },
+      { id: "inter", nome: "Internacional", cores: ["#e5050f", "#ffffff"], escudo: "assets/escudos/inter.png" },
+      { id: "flamengo", nome: "Flamengo", cores: ["#c4161c", "#111111"], escudo: "assets/escudos/flamengo.png" },
+      { id: "corinthians", nome: "Corinthians", cores: ["#f2f2f2", "#111111"], escudo: "assets/escudos/corinthians.png" },
+      { id: "palmeiras", nome: "Palmeiras", cores: ["#1a8a3a", "#ffffff"], escudo: "assets/escudos/palmeiras.png" },
     ]},
     { grupo: "NBA", itens: [
-      { id: "lakers", nome: "Lakers", cores: ["#fdb927", "#552583"] },
-      { id: "celtics", nome: "Celtics", cores: ["#00a24a", "#ffffff"] },
-      { id: "bulls", nome: "Bulls", cores: ["#ce1141", "#111111"] },
-      { id: "warriors", nome: "Warriors", cores: ["#ffc72c", "#1d428a"] },
+      { id: "lakers", nome: "Lakers", cores: ["#fdb927", "#552583"], escudo: "assets/escudos/lakers.png" },
+      { id: "celtics", nome: "Celtics", cores: ["#00a24a", "#ffffff"], escudo: "assets/escudos/celtics.png" },
+      { id: "bulls", nome: "Bulls", cores: ["#ce1141", "#111111"], escudo: "assets/escudos/bulls.png" },
+      { id: "warriors", nome: "Warriors", cores: ["#ffc72c", "#1d428a"], escudo: "assets/escudos/warriors.png" },
     ]},
     { grupo: "F1", itens: [
-      { id: "ferrari", nome: "Ferrari", cores: ["#e8002d", "#ffeb00"] },
-      { id: "mclaren", nome: "McLaren", cores: ["#ff8000", "#111111"] },
-      { id: "mercedes", nome: "Mercedes", cores: ["#27f4d2", "#111111"] },
-      { id: "redbull", nome: "Red Bull", cores: ["#3671c6", "#ffd100"] },
+      { id: "ferrari", nome: "Ferrari", cores: ["#e8002d", "#ffeb00"], escudo: "assets/escudos/ferrari.png" },
+      { id: "mclaren", nome: "McLaren", cores: ["#ff8000", "#111111"], escudo: "assets/escudos/mclaren.png" },
+      { id: "mercedes", nome: "Mercedes", cores: ["#27f4d2", "#111111"], escudo: "assets/escudos/mercedes.png" },
+      { id: "redbull", nome: "Red Bull", cores: ["#3671c6", "#ffd100"], escudo: "assets/escudos/redbull.png" },
     ]},
   ],
 
   // Estilos que a galera pede citando jogador/piloto (só texto; fotos são da barbearia)
+  // Fotos: Wikimedia Commons, licenças livres (crédito obrigatório, já exibido no card)
   inspiracoes: [
-    { ref: "Neymar", servico: "degrade", estilo: "Degradê alto com topete", esporte: "futebol" },
-    { ref: "Vini Jr.", servico: "degrade", estilo: "Twists com degradê navalhado", esporte: "futebol" },
-    { ref: "Cristiano Ronaldo", servico: "corte", estilo: "Social com risca e laterais baixas", esporte: "futebol" },
-    { ref: "LeBron James", servico: "barba", estilo: "Barba cheia desenhada", esporte: "nba" },
-    { ref: "Stephen Curry", servico: "combo", estilo: "Curto texturizado, barba rente", esporte: "nba" },
-    { ref: "Lewis Hamilton", servico: "corte", estilo: "Tranças e laterais raspadas", esporte: "f1" },
+    { ref: "Neymar", servico: "degrade", estilo: "Topo platinado cacheado, laterais baixas", esporte: "futebol",
+      foto: "assets/ref/neymar.jpg", credito: "Balkan Photos · CC BY-SA 2.0", fonte: "https://commons.wikimedia.org/wiki/File:Neymar_2018_(cropped).jpg" },
+    { ref: "Vini Jr.", servico: "degrade", estilo: "Crespo curto com degradê navalhado", esporte: "futebol",
+      foto: "assets/ref/vini.jpg", credito: "Real Madrid · CC BY 3.0", fonte: "https://commons.wikimedia.org/wiki/File:Vinicius_Jr_2021.jpg" },
+    { ref: "Cristiano Ronaldo", servico: "corte", estilo: "Social com laterais baixas e risca", esporte: "futebol",
+      foto: "assets/ref/cr7.jpg", credito: "Анна Нэсси · CC BY-SA 3.0", fonte: "https://commons.wikimedia.org/wiki/File:Cristiano_Ronaldo_2018_(cropped).jpg" },
+    { ref: "LeBron James", servico: "barba", estilo: "Barba cheia desenhada", esporte: "nba",
+      foto: "assets/ref/lebron.jpg", credito: "All-Pro Reels · CC BY-SA 2.0", fonte: "https://commons.wikimedia.org/wiki/File:LeBron_James_Lakers_(cropped).jpg" },
+    { ref: "Stephen Curry", servico: "combo", estilo: "Curto texturizado com barba rente", esporte: "nba",
+      foto: "assets/ref/curry.jpg", credito: "Keith Allison from Hanover, MD, USA · CC BY-SA 2.0", fonte: "https://commons.wikimedia.org/wiki/File:Stephen_Curry_2016_(cropped).jpg" },
+    { ref: "Lewis Hamilton", servico: "barba", estilo: "Cavanhaque e barba rente desenhada", esporte: "f1",
+      foto: "assets/ref/hamilton.jpg", credito: "Morio · CC BY-SA 4.0", fonte: "https://commons.wikimedia.org/wiki/File:Lewis_Hamilton_2016_Malaysia_2.jpg" },
   ],
 };
