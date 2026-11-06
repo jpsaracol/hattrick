@@ -9,10 +9,19 @@ Instala no celular pelo navegador ("Adicionar à tela inicial"), sem loja de app
 - **NBA:** Temporada de fidelidade (cestas até o corte grátis) em uma quadra
 - **Seu time:** o cliente escolhe o time e o app muda de cor; a cor é clareada sozinha se ficar ilegível
 
+## Painel do barbeiro (`painel.html`)
+- Agenda do dia em colunas (uma por barbeiro), com almoço, folga e linha do "agora"
+- Resumo: horários, faturamento previsto e já atendido, ocupação, próximo cliente
+- De onde vieram os horários: App, WhatsApp, Telefone, Balcão
+- **Registrar horário** marcado por WhatsApp, telefone ou no balcão; tocar num espaço livre já abre o formulário com barbeiro, dia e hora
+- Tocar num horário: atendido, faltou, cancelar, confirmar no WhatsApp, ligar
+- Na demo, painel e app usam o mesmo armazenamento do navegador; na versão real, os dois leem a mesma agenda na nuvem e o painel tem login
+
 ## Arquivos
 - `js/config.js`: tudo da barbearia (serviços, preços, barbeiros, horários, times, referências)
 - `js/agenda.js`: regras de horário livre (vêm do projeto Na Régua)
-- `js/app.js`: telas e fluxo
+- `js/app.js`: telas e fluxo do cliente
+- `js/painel.js` + `css/painel.css`: painel do barbeiro
 - `sw.js`: cache offline. **Ao alterar arquivos, suba a VERSAO.**
 
 ## Antes de entregar ao cliente

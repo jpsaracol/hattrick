@@ -386,7 +386,8 @@
   let cancelando = null;
   function renderTemporada() {
     const meta = CONFIG.metaTemporada;
-    const todos = A.carregar().filter((a) => a.status !== "cancelado");
+    // só o que o próprio cliente marcou pelo app (o painel do barbeiro usa o mesmo armazenamento na demo)
+    const todos = A.carregar().filter((a) => a.status !== "cancelado" && (a.origem || "app") === "app");
     const cestas = todos.length % meta, premios = Math.floor(todos.length / meta);
     const contar = (campo) => { const c = {}; todos.forEach((a) => (c[a[campo]] = (c[a[campo]] || 0) + 1)); return Object.entries(c).sort((x, y) => y[1] - x[1])[0]?.[0]; };
     const favB = contar("barbeiroId"), favS = contar("servicoId");

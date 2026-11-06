@@ -4,6 +4,9 @@
 // ou com uma planilha do Google, e o resto do código continua igual.
 const Agenda = (() => {
   const CHAVE = "hattrick_agendamentos_v1";
+  const CHAVE_STATUS = "hattrick_status_exemplos_v1"; // status marcados pelo barbeiro nos horários de exemplo
+  // origem: de onde veio o horário
+  const ORIGENS = { app: "App", whatsapp: "WhatsApp", telefone: "Telefone", balcao: "Balcão" };
   const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
   let memoria = []; // usado se o navegador bloquear o localStorage
 
@@ -47,6 +50,9 @@ const Agenda = (() => {
   function carregar() {
     try { return JSON.parse(localStorage.getItem(CHAVE)) || []; } catch { return memoria; }
   }
+  function statusExemplos() {
+    try { return JSON.parse(localStorage.getItem(CHAVE_STATUS)) || {}; } catch { return {}; }
+  }
   function salvar(lista) {
     memoria = lista;
     try { localStorage.setItem(CHAVE, JSON.stringify(lista)); } catch { /* fica só na memória */ }
@@ -74,7 +80,8 @@ const Agenda = (() => {
           const s = CONFIG.servicos[Math.floor(r() * 3)]; // corte, barba ou combo
           if (r() < 0.35 && t + s.duracao <= fim) {
             lista.push({ id: `ex-${k}-${b.id}-${t}`, exemplo: true, data: k, ini: t, dur: s.duracao,
-              servicoId: s.id, barbeiroId: b.id, nome: NOMES_EXEMPLO[Math.floor(r() * NOMES_EXEMPLO.length)] });
+              servicoId: s.id, barbeiroId: b.id, nome: NOMES_EXEMPLO[Math.floor(r() * NOMES_EXEMPLO.length)],
+              origem: ["app", "whatsapp", "whatsapp", "telefone", "balcao"][Math.floor(r() * 5)], status: "confirmado" });
             t += s.duracao;
           } else t += CONFIG.passoMin * 2;
         }
@@ -83,9 +90,12 @@ const Agenda = (() => {
     return (cacheExemplo[k] = lista);
   }
 
-  function doDia(k, barbeiroId) {
-    const reais = carregar().filter((a) => a.data === k && a.status !== "cancelado");
-    return [...exemplos(k), ...reais]
+  function doDia(k, barbeiroId, incluirCancelados = false) {
+    const st = statusExemplos();
+    const ex = exemplos(k).map((a) => (st[a.id] ? { ...a, status: st[a.id] } : a));
+    const reais = carregar().filter((a) => a.data === k);
+    return [...ex, ...reais]
+      .filter((a) => incluirCancelados || a.status !== "cancelado")
       .filter((a) => !barbeiroId || a.barbeiroId === barbeiroId)
       .sort((a, b) => a.ini - b.ini);
   }
@@ -146,14 +156,14 @@ const Agenda = (() => {
 
   // Confere de novo se o horário está livre na hora de confirmar
   // (outra pessoa pode ter marcado enquanto o cliente digitava o nome).
-  function criar({ data, ini, servicoId, barbeiroId, nome, telefone }) {
+  function criar({ data, ini, servicoId, barbeiroId, nome, telefone = "", origem = "app", obs = "" }) {
     const dur = servico(servicoId).duracao;
     if (!livresDoBarbeiro(data, servicoId, barbeiroId).includes(ini)) {
       return { ok: false, motivo: "ocupado" };
     }
     const novo = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), codigo: gerarCodigo(),
       data, ini, dur, servicoId, barbeiroId, nome: nome.trim(), telefone: soDigitos(telefone),
-      status: "confirmado", criadoEm: new Date().toISOString() };
+      origem, obs: obs.trim(), status: "confirmado", criadoEm: new Date().toISOString() };
     salvar([...carregar(), novo]);
     return { ok: true, agendamento: novo };
   }
@@ -173,8 +183,18 @@ const Agenda = (() => {
     salvar(carregar().map((a) => (a.id === id ? { ...a, status: "cancelado", canceladoEm: new Date().toISOString() } : a)));
   }
 
+  // Barbeiro marca: confirmado | atendido | faltou | cancelado
+  function definirStatus(id, status) {
+    if (String(id).startsWith("ex-")) {
+      const st = statusExemplos(); st[id] = status;
+      try { localStorage.setItem(CHAVE_STATUS, JSON.stringify(st)); } catch { /* ok */ }
+      return;
+    }
+    salvar(carregar().map((a) => (a.id === id ? { ...a, status, [`${status}Em`]: new Date().toISOString() } : a)));
+  }
+
   // Apaga todos os dados pessoais guardados neste navegador (LGPD: direito de exclusão)
-  function apagarTudo() { salvar([]); }
+  function apagarTudo() { salvar([]); try { localStorage.removeItem(CHAVE_STATUS); } catch { /* ok */ } }
 
   // Arquivo .ics para o cliente salvar no calendário do celular
   function arquivoCalendario(a) {
@@ -189,5 +209,5 @@ const Agenda = (() => {
 
   return { paraMin, paraHora, chaveDia, deChave, rotuloDia, hoje, somaDias, servico, barbeiro,
     blocosDeTrabalho, diaAberto, doDia, horariosLivres, proximosDias, criar, doCliente, cancelar,
-    apagarTudo, arquivoCalendario, soDigitos, carregar };
+    apagarTudo, arquivoCalendario, soDigitos, carregar, definirStatus, ORIGENS };
 })();

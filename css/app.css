@@ -47,7 +47,7 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 img, svg { display: block; max-width: 100%; }
-button, input { font: inherit; color: inherit; }
+button, input, select { font: inherit; color: inherit; }
 a { color: inherit; }
 ul, ol { list-style: none; padding: 0; }
 [tabindex="-1"]:focus { outline: none; }
