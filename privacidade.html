@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Privacidade e termos · Hat-Trick Barber Sport</title>
+  <meta name="theme-color" content="#0c0f0d">
+  <link rel="icon" href="img/icone.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css?v=1">
+  <style>
+    body { padding-bottom: 48px; }
+    .texto { width: min(100% - 32px, 700px); margin: 24px auto; }
+    .texto h1 { font: 700 clamp(2.4rem, 10vw, 3.4rem)/0.92 var(--display); text-transform: uppercase; margin: 18px 0 8px; }
+    .texto h2 { font: 700 1.5rem/1 var(--display); text-transform: uppercase; margin: 32px 0 8px; }
+    .texto p, .texto li { color: var(--giz-2); }
+    .texto p + p { margin-top: 10px; }
+    .texto ul { list-style: disc; padding-left: 20px; }
+    .texto strong { color: var(--giz); }
+    .texto .botao { margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <p class="aviso">Demonstração · serviços, preços e barbeiros são exemplos</p>
+  <main class="texto">
+    <a class="botao botao-linha" href="./">← Voltar ao app</a>
+    <h1>Privacidade e termos de uso</h1>
+    <p>Atualizado em 6 de novembro de 2026</p>
+
+    <h2>O que é este app</h2>
+    <p>Este app é uma <strong>demonstração</strong> feita para apresentar à Hat-Trick Barber Sport. Os serviços, preços, barbeiros e horários ocupados são exemplos. Nenhum horário marcado aqui gera atendimento de verdade.</p>
+    <p>Nomes de times, ligas, equipes e atletas aparecem só como referência de tema e de estilo de corte. Esta demonstração não tem ligação com nenhum deles nem é patrocinada por eles.</p>
+
+    <h2>Quais dados pedimos e para quê</h2>
+    <ul>
+      <li><strong>Nome:</strong> para o barbeiro saber quem vai atender.</li>
+      <li><strong>Celular:</strong> para confirmar, remarcar ou cancelar o horário.</li>
+    </ul>
+    <p>Não pedimos CPF, e-mail, endereço nem dados de pagamento. A base legal é a execução do serviço que você pediu (art. 7º, V, da LGPD).</p>
+
+    <h2>Onde os dados ficam</h2>
+    <p>Nesta demonstração, tudo fica <strong>só neste aparelho</strong>, no armazenamento do navegador. Nada é enviado para servidor. O time que você escolhe e seu nome e celular (para preencher o próximo agendamento) também ficam só aqui.</p>
+    <p>O app não usa cookies, rastreadores, anúncios nem ferramentas de análise. As fontes estão no próprio app, sem chamadas a serviços de terceiros. Os botões de WhatsApp e de mapa só abrem esses serviços quando você toca neles.</p>
+
+    <h2>Como apagar seus dados</h2>
+    <button class="botao botao-cheio" type="button" id="apagar">Apagar meus dados deste aparelho</button>
+    <p id="apagado" role="status"></p>
+    <p>Desinstalar o app ou limpar os dados do navegador também apaga tudo.</p>
+
+    <h2>Termos de uso</h2>
+    <p>O app é oferecido como está, para demonstrar o funcionamento. Os valores mostrados não são oferta de serviço. A “temporada” (cortes que viram corte grátis) é uma regra de exemplo e não dá direito a prêmio.</p>
+
+    <h2>Na versão oficial</h2>
+    <p>Quando a barbearia adotar o app, os agendamentos passam a ir para a agenda dela. Esta página vai trazer a razão social, o CNPJ, o endereço completo, o contato do responsável pelos dados e o prazo de guarda das informações.</p>
+  </main>
+  <script src="js/config.js?v=1"></script>
+  <script src="js/agenda.js?v=1"></script>
+  <script>
+    document.getElementById("apagar").addEventListener("click", () => {
+      Agenda.apagarTudo();
+      ["hattrick_time", "hattrick_cliente"].forEach((k) => { try { localStorage.removeItem(k); } catch {} });
+      document.getElementById("apagado").textContent = "Pronto, os dados deste app foram apagados do aparelho.";
+    });
+  </script>
+</body>
+</html>
