@@ -1,22 +1,29 @@
-// Agenda: calcula horários livres, salva e cancela agendamentos.
-// Nesta demonstração os dados ficam só no navegador (localStorage).
-// Numa versão real, as funções carregar/salvar falariam com um servidor
-// ou com uma planilha do Google, e o resto do código continua igual.
+// Agenda: expediente de cada barbeiro, horários livres, criar/cancelar.
+// Dois modos com as mesmas funções:
+//  - demonstração: tudo no navegador (localStorage) + horários de exemplo
+//  - nuvem: Supabase (js/nuvem.js), quando CONFIG.supabase estiver preenchido
+// O cálculo de horário livre é sempre feito aqui; na nuvem o banco confere de novo ao salvar.
 const Agenda = (() => {
   const CHAVE = "hattrick_agendamentos_v1";
-  const CHAVE_STATUS = "hattrick_status_exemplos_v1"; // status marcados pelo barbeiro nos horários de exemplo
-  // origem: de onde veio o horário
+  const CHAVE_STATUS = "hattrick_status_exemplos_v1";
+  const CHAVE_EXP = "hattrick_expedientes_v1";
+  const CHAVE_BLOQ = "hattrick_bloqueios_v1";
+  const CHAVE_BARB = "hattrick_barbeiros_v1";
   const ORIGENS = { app: "App", whatsapp: "WhatsApp", telefone: "Telefone", balcao: "Balcão" };
   const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
-  let memoria = []; // usado se o navegador bloquear o localStorage
+  const naNuvem = () => typeof Nuvem !== "undefined" && Nuvem.ativo;
+  let memoria = [];
 
-  // ---------- utilidades de data e hora ----------
+  // ---------- utilidades ----------
   const paraMin = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
   const paraHora = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
   const chaveDia = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const deChave = (k) => { const [a, m, d] = k.split("-").map(Number); return new Date(a, m - 1, d); };
   const hoje = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
   const somaDias = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+  const soDigitos = (t) => String(t ?? "").replace(/\D/g, "");
+  const ler = (k, padrao) => { try { return JSON.parse(localStorage.getItem(k)) ?? padrao; } catch { return padrao; } };
+  const gravar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ok */ } };
 
   function rotuloDia(k, curto = false) {
     const d = deChave(k);
@@ -28,57 +35,76 @@ const Agenda = (() => {
     return curto ? `${nome.slice(0, 3)} ${dm}` : `${nome}, ${dm}`;
   }
 
-  const servico = (id) => CONFIG.servicos.find((s) => s.id === id);
-  const barbeiro = (id) => CONFIG.barbeiros.find((b) => b.id === id);
+  const servico = (id) => CONFIG.servicos.find((s) => s.id === id) || { id, nome: "Serviço", duracao: 30, preco: 0, esporte: "futebol" };
+  const barbeiro = (id) => CONFIG.barbeiros.find((b) => b.id === id) || { id, nome: "Barbeiro", numero: 0, esporte: "futebol", folga: [] };
 
-  // ---------- expediente ----------
-  // Devolve os blocos de trabalho do barbeiro no dia, em minutos: [[ini, fim], ...]
-  function blocosDeTrabalho(k, barbeiroId) {
-    const d = deChave(k);
-    const exp = CONFIG.expediente[d.getDay()];
-    if (!exp || barbeiro(barbeiroId).folga.includes(d.getDay())) return [];
-    const abre = paraMin(exp.abre), fecha = paraMin(exp.fecha);
-    if (!exp.almoco) return [[abre, fecha]];
-    return [[abre, paraMin(exp.almoco[0])], [paraMin(exp.almoco[1]), fecha]];
+  // ---------- expediente de cada barbeiro ----------
+  // exp[barbeiroId][diaSemana] = { aberto, abre, fecha, almocoIni, almocoFim } (minutos)
+  let exp = {};
+  let bloqueios = []; // { id, barbeiroId, data, ini, fim, motivo }
+
+  function expedientePadrao() {
+    const e = {};
+    for (const b of CONFIG.barbeiros) {
+      e[b.id] = {};
+      for (let d = 0; d < 7; d++) {
+        const x = CONFIG.expediente[d];
+        e[b.id][d] = x
+          ? { aberto: !(b.folga || []).includes(d), abre: paraMin(x.abre), fecha: paraMin(x.fecha),
+              almocoIni: x.almoco ? paraMin(x.almoco[0]) : null, almocoFim: x.almoco ? paraMin(x.almoco[1]) : null }
+          : { aberto: false, abre: 540, fecha: 1140, almocoIni: null, almocoFim: null };
+      }
+    }
+    return e;
+  }
+  const expediente = (bId, dia) => exp[bId]?.[dia] || { aberto: false, abre: 540, fecha: 1140, almocoIni: null, almocoFim: null };
+
+  // folga = dia em que a casa abre mas o barbeiro não (usado no Elenco)
+  function atualizarFolgas() {
+    const casaAbre = [0, 1, 2, 3, 4, 5, 6].filter((d) => CONFIG.barbeiros.some((b) => expediente(b.id, d).aberto));
+    for (const b of CONFIG.barbeiros) b.folga = casaAbre.filter((d) => !expediente(b.id, d).aberto);
   }
 
-  const diaAberto = (k, barbeiroId) =>
-    barbeiroId ? blocosDeTrabalho(k, barbeiroId).length > 0
-               : CONFIG.barbeiros.some((b) => blocosDeTrabalho(k, b.id).length > 0);
+  const bloqueiosDoDia = (k, bId) => bloqueios.filter((x) => x.data === k && (!bId || x.barbeiroId === bId));
 
-  // ---------- armazenamento ----------
+  function blocosDeTrabalho(k, bId) {
+    const e = expediente(bId, deChave(k).getDay());
+    if (!e.aberto) return [];
+    if (bloqueiosDoDia(k, bId).some((x) => x.ini <= e.abre && x.fim >= e.fecha)) return []; // dia inteiro bloqueado
+    if (e.almocoIni == null) return [[e.abre, e.fecha]];
+    return [[e.abre, e.almocoIni], [e.almocoFim, e.fecha]].filter(([i, f]) => f > i);
+  }
+
+  const diaAberto = (k, bId) => (bId ? blocosDeTrabalho(k, bId).length > 0 : CONFIG.barbeiros.some((b) => blocosDeTrabalho(k, b.id).length > 0));
+
+  // ---------- agendamentos ----------
+  // demo: localStorage + exemplos | nuvem: lista carregada do Supabase
+  let nuvemLista = []; // completos (barbeiro/dono) ou só os do cliente
+  let nuvemOcupados = []; // { barbeiroId, data, ini, dur } sem nome (para o cliente calcular livres)
+
   function carregar() {
-    try { return JSON.parse(localStorage.getItem(CHAVE)) || []; } catch { return memoria; }
+    if (naNuvem()) return nuvemLista;
+    return ler(CHAVE, null) ?? memoria;
   }
-  function statusExemplos() {
-    try { return JSON.parse(localStorage.getItem(CHAVE_STATUS)) || {}; } catch { return {}; }
-  }
-  function salvar(lista) {
-    memoria = lista;
-    try { localStorage.setItem(CHAVE, JSON.stringify(lista)); } catch { /* fica só na memória */ }
-  }
+  function salvar(lista) { memoria = lista; gravar(CHAVE, lista); }
 
-  // ---------- agenda de exemplo ----------
-  // Para a demonstração não parecer vazia, cada dia ganha alguns horários
-  // ocupados "de mentira". O sorteio usa a data como semente, então o mesmo
-  // dia sempre mostra os mesmos horários ocupados.
   const NOMES_EXEMPLO = ["Carlos", "Marcos", "João", "Pedro", "Lucas", "Thiago", "André", "Felipe", "Bruno", "Rafael", "Gustavo", "Diego"];
   function sorteador(semente) {
     let h = 2166136261;
     for (const c of semente) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
     return () => { h = Math.imul(h ^ (h >>> 15), 2246822507); h = Math.imul(h ^ (h >>> 13), 3266489909); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
   }
-  const cacheExemplo = {};
   function exemplos(k) {
-    if (cacheExemplo[k]) return cacheExemplo[k];
     const lista = [];
     for (const b of CONFIG.barbeiros) {
       const r = sorteador(k + b.id);
+      const bloq = bloqueiosDoDia(k, b.id);
       for (const [ini, fim] of blocosDeTrabalho(k, b.id)) {
         let t = ini;
         while (t < fim) {
-          const s = CONFIG.servicos[Math.floor(r() * 3)]; // corte, barba ou combo
-          if (r() < 0.35 && t + s.duracao <= fim) {
+          const s = CONFIG.servicos[Math.floor(r() * 3)];
+          const livreDeBloqueio = !bloq.some((x) => t < x.fim && x.ini < t + s.duracao);
+          if (r() < 0.35 && t + s.duracao <= fim && livreDeBloqueio) {
             lista.push({ id: `ex-${k}-${b.id}-${t}`, exemplo: true, data: k, ini: t, dur: s.duracao,
               servicoId: s.id, barbeiroId: b.id, nome: NOMES_EXEMPLO[Math.floor(r() * NOMES_EXEMPLO.length)],
               origem: ["app", "whatsapp", "whatsapp", "telefone", "balcao"][Math.floor(r() * 5)], status: "confirmado" });
@@ -87,32 +113,42 @@ const Agenda = (() => {
         }
       }
     }
-    return (cacheExemplo[k] = lista);
+    return lista;
   }
 
-  function doDia(k, barbeiroId, incluirCancelados = false) {
-    const st = statusExemplos();
-    const ex = exemplos(k).map((a) => (st[a.id] ? { ...a, status: st[a.id] } : a));
-    const reais = carregar().filter((a) => a.data === k);
-    return [...ex, ...reais]
+  function doDia(k, bId, incluirCancelados = false) {
+    let lista;
+    if (naNuvem()) {
+      const meus = nuvemLista.filter((a) => a.data === k);
+      const ids = new Set(meus.map((a) => `${a.barbeiroId}|${a.ini}`));
+      // ocupados anônimos que não são meus (o cliente não vê nome dos outros)
+      const outros = Nuvem.equipe ? [] : nuvemOcupados.filter((o) => o.data === k && !ids.has(`${o.barbeiroId}|${o.ini}`))
+        .map((o) => ({ ...o, id: `oc-${o.barbeiroId}-${o.data}-${o.ini}`, anonimo: true, status: "confirmado", nome: "Ocupado", servicoId: "" }));
+      lista = [...meus, ...outros];
+    } else {
+      const st = ler(CHAVE_STATUS, {});
+      lista = [...exemplos(k).map((a) => (st[a.id] ? { ...a, status: st[a.id] } : a)), ...carregar().filter((a) => a.data === k)];
+    }
+    return lista
       .filter((a) => incluirCancelados || a.status !== "cancelado")
-      .filter((a) => !barbeiroId || a.barbeiroId === barbeiroId)
+      .filter((a) => !bId || a.barbeiroId === bId)
       .sort((a, b) => a.ini - b.ini);
   }
 
   // ---------- horários livres ----------
   const conflita = (ini, fim, ocupados) => ocupados.some((a) => ini < a.ini + a.dur && a.ini < fim);
 
-  function livresDoBarbeiro(k, servicoId, barbeiroId) {
+  function livresDoBarbeiro(k, servicoId, bId, semAntecedencia = false) {
     const dur = servico(servicoId).duracao;
-    const ocupados = doDia(k, barbeiroId);
+    const ocupados = [...doDia(k, bId), ...bloqueiosDoDia(k, bId).map((x) => ({ ini: x.ini, dur: x.fim - x.ini }))];
     let minimo = 0;
     if (k === chaveDia(new Date())) {
       const agora = new Date();
-      minimo = agora.getHours() * 60 + agora.getMinutes() + CONFIG.antecedenciaMin;
+      minimo = agora.getHours() * 60 + agora.getMinutes() + (semAntecedencia ? 0 : CONFIG.antecedenciaMin);
     }
+    if (k < chaveDia(new Date())) return [];
     const livres = [];
-    for (const [ini, fim] of blocosDeTrabalho(k, barbeiroId)) {
+    for (const [ini, fim] of blocosDeTrabalho(k, bId)) {
       for (let t = ini; t + dur <= fim; t += CONFIG.passoMin) {
         if (t >= minimo && !conflita(t, t + dur, ocupados)) livres.push(t);
       }
@@ -120,14 +156,12 @@ const Agenda = (() => {
     return livres;
   }
 
-  // barbeiroId = null significa "sem preferência": junta os horários de todos e,
-  // quando mais de um está livre, escolhe quem tem menos clientes no dia.
-  function horariosLivres(k, servicoId, barbeiroId) {
-    if (barbeiroId) return livresDoBarbeiro(k, servicoId, barbeiroId).map((t) => ({ ini: t, barbeiroId }));
+  function horariosLivres(k, servicoId, bId, semAntecedencia = false) {
+    if (bId) return livresDoBarbeiro(k, servicoId, bId, semAntecedencia).map((t) => ({ ini: t, barbeiroId: bId }));
     const porHora = new Map();
     const carga = (id) => doDia(k, id).length;
     for (const b of CONFIG.barbeiros) {
-      for (const t of livresDoBarbeiro(k, servicoId, b.id)) {
+      for (const t of livresDoBarbeiro(k, servicoId, b.id, semAntecedencia)) {
         const atual = porHora.get(t);
         if (!atual || carga(b.id) < carga(atual)) porHora.set(t, b.id);
       }
@@ -135,79 +169,138 @@ const Agenda = (() => {
     return [...porHora.entries()].sort((a, b) => a[0] - b[0]).map(([ini, id]) => ({ ini, barbeiroId: id }));
   }
 
-  // Próximos dias que têm pelo menos um horário livre
-  function proximosDias(servicoId, barbeiroId, quantos = CONFIG.diasNoChat) {
+  function proximosDias(servicoId, bId, quantos = CONFIG.diasNoChat) {
     const dias = [];
     for (let i = 0; i < 45 && dias.length < quantos; i++) {
       const k = chaveDia(somaDias(hoje(), i));
-      if (diaAberto(k, barbeiroId) && horariosLivres(k, servicoId, barbeiroId).length) dias.push(k);
+      if (diaAberto(k, bId) && horariosLivres(k, servicoId, bId).length) dias.push(k);
     }
     return dias;
   }
 
-  // ---------- criar, consultar e cancelar ----------
+  // ---------- carregar / atualizar ----------
+  async function iniciar() {
+    if (naNuvem()) {
+      await Nuvem.carregarBase(); // preenche CONFIG.barbeiros/servicos, exp e bloqueios
+    } else {
+      const cartoes = ler(CHAVE_BARB, {});
+      for (const b of CONFIG.barbeiros) if (cartoes[b.id]) Object.assign(b, cartoes[b.id]);
+      exp = expedientePadrao();
+      const salvos = ler(CHAVE_EXP, {});
+      for (const bId of Object.keys(salvos)) if (exp[bId]) Object.assign(exp[bId], salvos[bId]);
+      bloqueios = ler(CHAVE_BLOQ, []);
+    }
+    atualizarFolgas();
+    await atualizar();
+  }
+  // traz da nuvem os horários do período (padrão: hoje até 45 dias)
+  async function atualizar(de = chaveDia(somaDias(hoje(), -7)), ate = chaveDia(somaDias(hoje(), 45))) {
+    if (!naNuvem()) return;
+    const r = await Nuvem.agendamentos(de, ate);
+    nuvemLista = r.lista;
+    nuvemOcupados = r.ocupados;
+    bloqueios = r.bloqueios ?? bloqueios;
+  }
+  // usado pela nuvem ao carregar a base
+  function definirBase({ expedientes, bloqueios: bl }) {
+    exp = expedientes;
+    if (bl) bloqueios = bl;
+  }
+
+  // ---------- criar, cancelar, status ----------
   function gerarCodigo() {
-    const letras = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem 0/O e 1/I para não confundir
+    const letras = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     let c = "HT-";
     for (let i = 0; i < 4; i++) c += letras[Math.floor(Math.random() * letras.length)];
     return c;
   }
-  const soDigitos = (t) => String(t).replace(/\D/g, "");
 
-  // Confere de novo se o horário está livre na hora de confirmar
-  // (outra pessoa pode ter marcado enquanto o cliente digitava o nome).
-  function criar({ data, ini, servicoId, barbeiroId, nome, telefone = "", origem = "app", obs = "" }) {
-    const dur = servico(servicoId).duracao;
-    if (!livresDoBarbeiro(data, servicoId, barbeiroId).includes(ini)) {
-      return { ok: false, motivo: "ocupado" };
+  // equipe = barbeiro/dono registrando pelo painel (pode encaixar sem antecedência mínima)
+  async function criar({ data, ini, servicoId, barbeiroId, nome, telefone = "", origem = "app", obs = "", equipe = false }) {
+    if (!livresDoBarbeiro(data, servicoId, barbeiroId, equipe).includes(ini)) return { ok: false, motivo: "ocupado" };
+    if (naNuvem()) {
+      const r = await Nuvem.agendar({ data, ini, servicoId, barbeiroId, nome, telefone, origem, obs });
+      if (r.ok) nuvemLista = [...nuvemLista, r.agendamento];
+      return r;
     }
     const novo = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), codigo: gerarCodigo(),
-      data, ini, dur, servicoId, barbeiroId, nome: nome.trim(), telefone: soDigitos(telefone),
+      data, ini, dur: servico(servicoId).duracao, servicoId, barbeiroId, nome: nome.trim(), telefone: soDigitos(telefone),
       origem, obs: obs.trim(), status: "confirmado", criadoEm: new Date().toISOString() };
     salvar([...carregar(), novo]);
     return { ok: true, agendamento: novo };
   }
 
-  function doCliente(telefone) {
-    const tel = soDigitos(telefone);
-    const agora = new Date();
-    const minAgora = agora.getHours() * 60 + agora.getMinutes();
-    const hojeK = chaveDia(agora);
-    return carregar()
-      .filter((a) => a.telefone === tel && a.status !== "cancelado")
-      .filter((a) => a.data > hojeK || (a.data === hojeK && a.ini >= minAgora))
-      .sort((a, b) => (a.data + paraHora(a.ini)).localeCompare(b.data + paraHora(b.ini)));
-  }
-
-  function cancelar(id) {
-    salvar(carregar().map((a) => (a.id === id ? { ...a, status: "cancelado", canceladoEm: new Date().toISOString() } : a)));
-  }
-
-  // Barbeiro marca: confirmado | atendido | faltou | cancelado
-  function definirStatus(id, status) {
+  async function definirStatus(id, status) {
+    if (naNuvem()) {
+      const r = status === "cancelado" && !Nuvem.equipe ? await Nuvem.cancelar(id) : await Nuvem.definirStatus(id, status);
+      if (r.ok) nuvemLista = nuvemLista.map((a) => (a.id === id ? { ...a, status } : a));
+      return r;
+    }
     if (String(id).startsWith("ex-")) {
-      const st = statusExemplos(); st[id] = status;
-      try { localStorage.setItem(CHAVE_STATUS, JSON.stringify(st)); } catch { /* ok */ }
-      return;
+      const st = ler(CHAVE_STATUS, {}); st[id] = status; gravar(CHAVE_STATUS, st);
+      return { ok: true };
     }
     salvar(carregar().map((a) => (a.id === id ? { ...a, status, [`${status}Em`]: new Date().toISOString() } : a)));
+    return { ok: true };
+  }
+  const cancelar = (id) => definirStatus(id, "cancelado");
+
+  // ---------- editar expediente e bloqueios ----------
+  async function salvarExpediente(bId, semana) { // semana[0..6] = {aberto, abre, fecha, almocoIni, almocoFim}
+    if (naNuvem()) {
+      const r = await Nuvem.salvarExpediente(bId, semana);
+      if (!r.ok) return r;
+    } else {
+      const salvos = ler(CHAVE_EXP, {}); salvos[bId] = { ...semana }; gravar(CHAVE_EXP, salvos);
+    }
+    exp[bId] = { ...semana };
+    atualizarFolgas();
+    return { ok: true };
+  }
+  async function criarBloqueio({ barbeiroId, data, ini, fim, motivo }) {
+    if (naNuvem()) {
+      const r = await Nuvem.criarBloqueio({ barbeiroId, data, ini, fim, motivo });
+      if (r.ok) bloqueios = [...bloqueios, r.bloqueio];
+      return r;
+    }
+    const novo = { id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), barbeiroId, data, ini, fim, motivo: motivo.trim() };
+    bloqueios = [...bloqueios, novo]; gravar(CHAVE_BLOQ, bloqueios);
+    return { ok: true, bloqueio: novo };
+  }
+  async function removerBloqueio(id) {
+    if (naNuvem()) { const r = await Nuvem.removerBloqueio(id); if (!r.ok) return r; }
+    bloqueios = bloqueios.filter((x) => x.id !== id);
+    if (!naNuvem()) gravar(CHAVE_BLOQ, bloqueios);
+    return { ok: true };
+  }
+  async function salvarBarbeiro(b) { // { id, nome, numero, esporte, posicao, especialidade }
+    if (naNuvem()) { const r = await Nuvem.salvarBarbeiro(b); if (!r.ok) return r; }
+    else { const c = ler(CHAVE_BARB, {}); c[b.id] = { nome: b.nome, numero: b.numero, esporte: b.esporte, posicao: b.posicao, especialidade: b.especialidade }; gravar(CHAVE_BARB, c); }
+    Object.assign(barbeiro(b.id), b);
+    return { ok: true };
+  }
+  const bloqueiosDe = (bId, deK = chaveDia(hoje())) => bloqueios.filter((x) => x.barbeiroId === bId && x.data >= deK)
+    .sort((a, b) => (a.data + paraHora(a.ini)).localeCompare(b.data + paraHora(b.ini)));
+
+  // apaga o que está neste navegador (modo demonstração)
+  function apagarTudo() {
+    salvar([]);
+    [CHAVE_STATUS, CHAVE_EXP, CHAVE_BLOQ, CHAVE_BARB].forEach((k) => { try { localStorage.removeItem(k); } catch { /* ok */ } });
+    if (!naNuvem()) { exp = expedientePadrao(); bloqueios = []; atualizarFolgas(); }
   }
 
-  // Apaga todos os dados pessoais guardados neste navegador (LGPD: direito de exclusão)
-  function apagarTudo() { salvar([]); try { localStorage.removeItem(CHAVE_STATUS); } catch { /* ok */ } }
-
-  // Arquivo .ics para o cliente salvar no calendário do celular
   function arquivoCalendario(a) {
     const s = servico(a.servicoId), b = barbeiro(a.barbeiroId);
     const fmt = (k, min) => `${k.replace(/-/g, "")}T${paraHora(min).replace(":", "")}00`;
-    return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Hat-Trick demo//PT-BR", "BEGIN:VEVENT",
-      `UID:${a.id}@hattrick-demo`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`,
+    return ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Hat-Trick//PT-BR", "BEGIN:VEVENT",
+      `UID:${a.id}@hattrick`, `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").split(".")[0]}Z`,
       `DTSTART:${fmt(a.data, a.ini)}`, `DTEND:${fmt(a.data, a.ini + a.dur)}`,
       `SUMMARY:${s.nome} com ${b.nome} — ${CONFIG.nome}`, `LOCATION:${CONFIG.endereco}`,
-      `DESCRIPTION:Código ${a.codigo}. Agendamento de demonstração.`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+      `DESCRIPTION:Código ${a.codigo}.`, "END:VEVENT", "END:VCALENDAR"].join("\r\n");
   }
 
-  return { paraMin, paraHora, chaveDia, deChave, rotuloDia, hoje, somaDias, servico, barbeiro,
-    blocosDeTrabalho, diaAberto, doDia, horariosLivres, proximosDias, criar, doCliente, cancelar,
-    apagarTudo, arquivoCalendario, soDigitos, carregar, definirStatus, ORIGENS };
+  return { paraMin, paraHora, chaveDia, deChave, rotuloDia, hoje, somaDias, servico, barbeiro, soDigitos, DIAS, ORIGENS,
+    expediente, blocosDeTrabalho, bloqueiosDoDia, bloqueiosDe, diaAberto, doDia, horariosLivres, proximosDias,
+    iniciar, atualizar, definirBase, criar, cancelar, definirStatus, salvarExpediente, criarBloqueio, removerBloqueio, salvarBarbeiro,
+    apagarTudo, arquivoCalendario, carregar, naNuvem };
 })();

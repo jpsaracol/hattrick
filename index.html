@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="img/icone-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="css/app.css?v=3">
+  <link rel="stylesheet" href="css/app.css?v=4">
 </head>
 <body>
   <a class="pular" href="#conteudo">Pular para o conteúdo</a>
@@ -22,10 +22,13 @@
       <img class="marca-logo" src="img/logo-hattrick.png" alt="" width="52" height="52">
       <span class="marca-texto"><strong>BARBER SPORT</strong><small>Centro · Pelotas</small></span>
     </a>
-    <button class="botao-time" type="button" id="abrir-times" aria-haspopup="dialog">
+    <div class="topo-acoes">
+    <button class="botao-conta" type="button" id="abrir-conta" aria-haspopup="dialog" hidden></button>
+    <button class="botao-time" type="button" id="abrir-times" aria-haspopup="dialog" aria-label="Escolher seu time">
       <span class="time-amostra" aria-hidden="true"></span>
       <span class="time-nome">Seu time</span>
     </button>
+    </div>
   </header>
 
   <main id="conteudo" tabindex="-1">
@@ -95,9 +98,9 @@
     <section class="tela" id="tela-temporada" data-tela="temporada" aria-labelledby="t-temporada" hidden>
       <h1 id="t-temporada" class="tela-titulo">Sua temporada</h1>
       <div id="temporada"></div>
-      <h2 class="secao-titulo">Próximos jogos</h2>
+      <h2 class="secao-titulo" id="t-proximos">Próximos jogos</h2>
       <div id="meus-horarios"></div>
-      <p class="nota"><a href="privacidade.html">Privacidade e termos</a> · os dados ficam só neste aparelho · <a href="painel.html">Área do barbeiro</a></p>
+      <p class="nota"><a href="privacidade.html">Privacidade e termos</a><span id="nota-dados"> · os dados ficam só neste aparelho</span> · <a href="painel.html">Área do barbeiro</a></p>
     </section>
   </main>
 
@@ -120,6 +123,16 @@
     </form>
   </dialog>
 
+  <dialog class="folha" id="folha-conta" aria-labelledby="t-conta">
+    <div class="folha-corpo">
+      <div class="folha-topo">
+        <h2 id="t-conta">Sua conta</h2>
+        <button class="fechar" type="button" aria-label="Fechar" onclick="this.closest('dialog').close()"><svg aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <div id="conta-corpo"></div>
+    </div>
+  </dialog>
+
   <div class="largada" id="largada" aria-hidden="true">
     <div class="luzes"><i></i><i></i><i></i><i></i><i></i></div>
   </div>
@@ -135,11 +148,14 @@
     <symbol id="i-camisa" viewBox="0 0 24 24"><path d="M8 3 3 6l2 5 2-1v11h10V10l2 1 2-5-5-3c0 2-1.8 3-4 3S8 5 8 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
     <symbol id="i-trofeu" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4M12 14v4M8 20h8"/></g></symbol>
     <symbol id="i-trofeu-cheio" viewBox="0 0 24 24"><path fill="currentColor" d="M7 3h10v6a5 5 0 0 1-4 4.9V17h3v3H8v-3h3v-3.1A5 5 0 0 1 7 9zM5 5h1v4.5A3 3 0 0 1 3.5 6.6 2 2 0 0 1 5 5zm14 0a2 2 0 0 1 1.5 1.6A3 3 0 0 1 18 9.5V5z"/></symbol>
+    <symbol id="i-pessoa" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.2 4.2-6.5 8-6.5s7 2.3 8 6.5" stroke-linecap="round"/></g></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   </svg>
 
-  <script src="js/config.js?v=3"></script>
-  <script src="js/agenda.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/config.js?v=4"></script>
+  <script src="js/vendor/supabase-2.45.4.min.js"></script>
+  <script src="js/nuvem.js?v=4"></script>
+  <script src="js/agenda.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>

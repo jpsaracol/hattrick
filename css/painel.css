@@ -171,3 +171,75 @@ body.painel { padding-bottom: 40px; }
   .p-col-topo b { display: block; font-size: 0.88rem; white-space: normal; line-height: 1; }
   .p-col-topo small { display: none; }
 }
+
+/* ---------- topo: ver como / sair ---------- */
+.p-topo-acoes { display: flex; align-items: center; gap: 8px; }
+.p-ver-como { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--giz-2); }
+.p-ver-como select, .p-escolha select { min-height: 40px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--linha); background: var(--superficie); font-size: 0.9rem; }
+.p-sair { min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1px solid var(--linha); background: transparent; cursor: pointer; font-size: 0.88rem; }
+.p-sair:hover { border-color: var(--giz-3); }
+.p-sair[hidden], .p-novo[hidden], .p-ver-como[hidden] { display: none; }
+
+/* ---------- abas ---------- */
+.p-abas { display: flex; gap: 4px; margin: 18px 0 0; padding: 4px; border-radius: 14px; background: var(--superficie); border: 1px solid var(--linha); width: fit-content; max-width: 100%; }
+.p-abas button { min-height: 42px; padding: 0 18px; border: 0; border-radius: 10px; background: transparent; cursor: pointer; font: 700 1rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.05em; color: var(--giz-2); }
+.p-abas button:hover { color: var(--giz); }
+.p-abas button[aria-pressed="true"] { background: var(--limao); color: var(--fundo); }
+.p-abas button[hidden] { display: none; }
+
+/* ---------- login ---------- */
+.p-login { max-width: 420px; margin: 40px auto; }
+.p-login h1 { font: 700 2.4rem/0.95 var(--display); text-transform: uppercase; }
+.p-login form { margin-top: 20px; }
+
+/* ---------- cartões das abas Horários / Equipe ---------- */
+.p-cartao { background: var(--superficie); border: 1px solid var(--linha); border-radius: var(--raio); padding: 18px; margin-top: 16px; }
+.p-cartao-titulo { font: 700 1.35rem/1 var(--display); text-transform: uppercase; margin-bottom: 8px; }
+.p-cartao-acoes { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.p-cartao-acoes .botao { width: auto; }
+.painel input[type="time"], .painel input[type="date"], .painel input[type="number"] { color-scheme: dark; }
+
+.p-semana { display: grid; gap: 6px; margin-top: 10px; }
+.p-semana-dia { display: grid; grid-template-columns: 112px 1fr; gap: 8px 12px; align-items: center; border: 0; margin: 0; padding: 10px 0; border-top: 1px solid var(--linha); min-width: 0; }
+.p-semana-dia[data-fechado] .p-horas, .p-semana-dia[data-fechado] .p-almoco { opacity: .4; }
+.p-check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 500; }
+.p-check input { width: 20px; height: 20px; accent-color: var(--limao); flex: none; }
+.p-almoco { font-weight: 400; color: var(--giz-2); font-size: 0.92rem; }
+.p-horas { display: flex; align-items: center; gap: 6px; color: var(--giz-3); min-width: 0; }
+.p-horas input { min-height: 42px; min-width: 0; flex: 1; max-width: 120px; padding: 6px 8px; border-radius: 10px; border: 1.5px solid var(--linha); background: var(--superficie-2); font-variant-numeric: tabular-nums; }
+.p-horas input:focus { border-color: var(--limao); outline: none; }
+.p-horas input:disabled { opacity: .5; }
+
+.p-bloqueio-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; align-items: end; margin-top: 14px; }
+.p-bloqueio-form .p-check { grid-column: 1 / -1; margin: 0 0 14px; }
+.p-bloqueio-form input { min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--linha); background: var(--superficie-2); }
+.p-bloqueio-form [hidden] { display: none; }
+.p-bloqueios { margin-top: 14px; border-top: 1px solid var(--linha); }
+.p-bloqueios li, .p-acessos li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--linha); font-size: 0.92rem; color: var(--giz-2); flex-wrap: wrap; }
+.p-bloqueios li b, .p-acessos li b { color: var(--giz); font-weight: 500; }
+.p-bloqueios button { background: none; border: 0; padding: 6px 0; color: #ff9a9a; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font-size: 0.88rem; }
+.p-vazio { color: var(--giz-3) !important; }
+.p-papel { font-size: 0.8rem; padding: 3px 10px; border-radius: 999px; background: var(--superficie-2); color: var(--giz); }
+
+.p-cartao-barbeiro { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; padding: 14px 0; border-top: 1px solid var(--linha); }
+.p-cartao-barbeiro:first-child { border-top: 0; }
+.p-cartao-barbeiro input, .p-acesso-form input { min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--linha); background: var(--superficie-2); }
+.p-cartao-barbeiro .botao { grid-column: 1 / -1; }
+.p-acesso-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; margin-top: 14px; }
+.p-acesso-form [hidden] { display: none; }
+
+/* bloqueio na grade */
+.p-bloq { position: absolute; left: 3px; right: 3px; padding: 4px 6px; border: 0; border-radius: 8px; cursor: pointer; text-align: left; overflow: hidden;
+  background: repeating-linear-gradient(135deg, #2a2235 0 6px, #241d2e 6px 12px); color: #d9c9e8; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+.p-bloq span { display: flex; align-items: center; gap: 4px; font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.p-bloq svg { width: 12px; height: 12px; flex: none; }
+.lg-bloqueio { background: repeating-linear-gradient(135deg, #3a2f48 0 3px, #241d2e 3px 6px); }
+
+@media (max-width: 520px) {
+  .p-ver-como span { display: none; }
+  .p-semana-dia { grid-template-columns: 96px 1fr; gap: 6px 8px; }
+  .p-horas input { max-width: none; padding: 6px; font-size: 0.92rem; }
+  .p-horas { gap: 4px; }
+  .p-abas { width: 100%; }
+  .p-abas button { flex: 1; padding: 0 8px; }
+}

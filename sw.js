@@ -1,9 +1,9 @@
 // Guarda os arquivos do app para abrir rápido e funcionar sem internet.
 // Ao mudar qualquer arquivo, aumente a VERSAO para os celulares baixarem de novo.
-const VERSAO = "hattrick-v3";
+const VERSAO = "hattrick-v4";
 const ARQUIVOS = [
   "./", "index.html", "painel.html", "privacidade.html", "manifest.webmanifest",
-  "css/app.css?v=3", "js/config.js?v=3", "js/agenda.js?v=3", "js/app.js?v=3", "js/painel.js?v=3", "css/painel.css?v=3",
+  "css/app.css?v=4", "js/config.js?v=4", "js/agenda.js?v=4", "js/nuvem.js?v=4", "js/vendor/supabase-2.45.4.min.js", "js/app.js?v=4", "js/painel.js?v=4", "css/painel.css?v=4",
   "img/logo-hattrick.png", "img/icone-192.png", "img/icone-512.png",
   "fonts/barlow-400-latin.woff2", "fonts/barlow-500-latin.woff2", "fonts/barlow-condensed-700-latin.woff2",
 ];

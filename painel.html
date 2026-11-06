@@ -7,72 +7,146 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#0a0c22">
   <link rel="icon" href="img/icone-192.png" type="image/png">
-  <link rel="stylesheet" href="css/app.css?v=3">
-  <link rel="stylesheet" href="css/painel.css?v=3">
+  <link rel="stylesheet" href="css/app.css?v=4">
+  <link rel="stylesheet" href="css/painel.css?v=4">
 </head>
 <body class="painel">
-  <a class="pular" href="#grade-caixa">Pular para a agenda</a>
-  <p class="aviso">Demonstração · na versão real este painel tem login e os dados ficam na nuvem</p>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+  <p class="aviso" id="aviso-modo">Demonstração · dados só neste aparelho</p>
 
   <header class="p-topo">
     <a class="marca" href="./" aria-label="Abrir o app do cliente">
       <img class="marca-logo" src="img/logo-hattrick.png" alt="" width="52" height="52">
-      <span class="marca-texto"><strong>PAINEL</strong><small>Hat-Trick Barber Sport</small></span>
+      <span class="marca-texto"><strong>PAINEL</strong><small id="quem">Hat-Trick Barber Sport</small></span>
     </a>
-    <button class="botao botao-cheio p-novo" type="button" id="novo">
-      <svg aria-hidden="true"><use href="#i-mais"/></svg><span class="p-novo-l">Registrar </span>horário
-    </button>
+    <div class="p-topo-acoes">
+      <label class="p-ver-como" id="ver-como-caixa" hidden><span>Ver como</span><select id="ver-como"></select></label>
+      <button class="botao botao-cheio p-novo" type="button" id="novo" hidden>
+        <svg aria-hidden="true"><use href="#i-mais"/></svg><span class="p-novo-l">Registrar </span>horário
+      </button>
+      <button class="p-sair" type="button" id="sair" hidden>Sair</button>
+    </div>
   </header>
 
-  <main class="p-corpo">
-    <div class="p-dia">
-      <h1 id="titulo-dia">Agenda</h1>
-      <div class="p-dia-nav">
-        <button class="p-icone" type="button" id="anterior" aria-label="Dia anterior"><svg aria-hidden="true"><use href="#i-esq"/></svg></button>
-        <button class="p-hoje" type="button" id="hoje">Hoje</button>
-        <button class="p-icone" type="button" id="seguinte" aria-label="Próximo dia"><svg aria-hidden="true"><use href="#i-dir"/></svg></button>
-      </div>
+  <main class="p-corpo" id="conteudo" tabindex="-1">
+    <!-- login (versão com Supabase) -->
+    <section class="p-login" id="login" hidden aria-labelledby="t-login">
+      <h1 id="t-login">Entrar no painel</h1>
+      <p class="secao-sub">Use o e-mail e a senha da sua conta. O dono libera o acesso de cada barbeiro na aba Equipe.</p>
+      <form id="form-login" novalidate>
+        <div class="campo"><label for="l-email">E-mail</label><input id="l-email" type="email" autocomplete="email" inputmode="email" required></div>
+        <div class="campo"><label for="l-senha">Senha</label><input id="l-senha" type="password" autocomplete="current-password" required></div>
+        <p class="conta-msg" id="l-msg" role="status" aria-live="polite"></p>
+        <button class="botao botao-cheio" type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <div id="painel" hidden>
+      <nav class="p-abas" aria-label="Seções do painel">
+        <button type="button" data-aba="agenda" aria-pressed="true">Agenda</button>
+        <button type="button" data-aba="horarios" aria-pressed="false">Horários</button>
+        <button type="button" data-aba="equipe" aria-pressed="false" id="aba-equipe-btn">Equipe</button>
+      </nav>
+
+      <!-- ===================== AGENDA ===================== -->
+      <section id="aba-agenda" aria-labelledby="titulo-dia">
+        <div class="p-dia">
+          <h1 id="titulo-dia">Agenda</h1>
+          <div class="p-dia-nav">
+            <button class="p-icone" type="button" id="anterior" aria-label="Dia anterior"><svg aria-hidden="true"><use href="#i-esq"/></svg></button>
+            <button class="p-hoje" type="button" id="hoje">Hoje</button>
+            <button class="p-icone" type="button" id="seguinte" aria-label="Próximo dia"><svg aria-hidden="true"><use href="#i-dir"/></svg></button>
+          </div>
+        </div>
+        <div class="p-dias" id="dias" role="group" aria-label="Escolher dia"></div>
+
+        <section class="p-resumo" aria-label="Resumo do dia">
+          <div class="p-num"><span>Horários</span><b id="n-total">0</b><small id="n-status"></small></div>
+          <div class="p-num"><span>Previsto</span><b id="n-valor">R$ 0</b><small id="n-feito"></small></div>
+          <div class="p-num"><span>Agenda ocupada</span><b id="n-ocup">0%</b><small id="n-livre"></small></div>
+          <div class="p-num p-proximo"><span>Próximo cliente</span><b id="n-prox">—</b><small id="n-prox-info"></small></div>
+        </section>
+
+        <section class="p-origens" aria-label="De onde vieram os horários do dia" id="origens"></section>
+        <div class="p-filtros" role="group" aria-label="Mostrar barbeiro" id="filtros"></div>
+
+        <section class="p-grade-caixa" id="grade-caixa" aria-labelledby="t-grade">
+          <h2 id="t-grade" class="sr-only">Agenda por barbeiro</h2>
+          <div class="p-grade" id="grade"></div>
+          <p class="vazio" id="fechado" hidden>Ninguém atende neste dia.</p>
+        </section>
+
+        <section class="p-legenda" aria-label="Legenda">
+          <span><i class="lg lg-confirmado"></i>Confirmado</span>
+          <span><i class="lg lg-atendido"></i>Atendido</span>
+          <span><i class="lg lg-faltou"></i>Faltou</span>
+          <span><i class="lg lg-bloqueio"></i>Bloqueado</span>
+          <span><i class="lg lg-livre"></i>Livre (toque para encaixar)</span>
+          <span id="legenda-exemplo"><i class="lg lg-exemplo"></i>Horário de exemplo</span>
+        </section>
+      </section>
+
+      <!-- ===================== HORÁRIOS ===================== -->
+      <section id="aba-horarios" hidden aria-labelledby="t-horarios">
+        <div class="p-dia">
+          <h1 id="t-horarios">Horários</h1>
+          <label class="p-escolha" id="h-barbeiro-caixa"><span class="sr-only">Barbeiro</span><select id="h-barbeiro"></select></label>
+        </div>
+        <p class="secao-sub">Os horários livres do app seguem este expediente. Mudou aqui, mudou para os clientes na hora.</p>
+
+        <form id="form-expediente" class="p-cartao" novalidate>
+          <h2 class="p-cartao-titulo">Expediente da semana</h2>
+          <div class="p-semana" id="semana"></div>
+          <p class="conta-msg" id="exp-msg" role="status" aria-live="polite"></p>
+          <div class="p-cartao-acoes">
+            <button class="botao botao-linha" type="button" id="copiar-terca">Copiar terça para qua–sex</button>
+            <button class="botao botao-cheio" type="submit">Salvar expediente</button>
+          </div>
+        </form>
+
+        <div class="p-cartao">
+          <h2 class="p-cartao-titulo">Folgas e bloqueios</h2>
+          <p class="secao-sub">Dentista, folga num sábado, férias: bloqueie e o app para de oferecer esses horários. Horários já marcados continuam; avise o cliente.</p>
+          <form id="form-bloqueio" class="p-bloqueio-form" novalidate>
+            <div class="campo"><label for="bq-data">Dia</label><input id="bq-data" type="date" required></div>
+            <div class="campo"><label for="bq-ate">Até o dia <small>(férias)</small></label><input id="bq-ate" type="date"></div>
+            <label class="p-check"><input type="checkbox" id="bq-inteiro" checked><span>Dia inteiro</span></label>
+            <div class="campo bq-periodo"><label for="bq-ini">Das</label><input id="bq-ini" type="time" step="900" value="14:00"></div>
+            <div class="campo bq-periodo"><label for="bq-fim">Até</label><input id="bq-fim" type="time" step="900" value="15:00"></div>
+            <div class="campo p-campo-largo"><label for="bq-motivo">Motivo <small>(só a equipe vê)</small></label><input id="bq-motivo" maxlength="60" placeholder="Ex.: dentista"></div>
+            <p class="conta-msg p-campo-largo" id="bq-msg" role="status" aria-live="polite"></p>
+            <button class="botao botao-cheio p-campo-largo" type="submit">Bloquear</button>
+          </form>
+          <ul class="p-bloqueios" id="lista-bloqueios"></ul>
+        </div>
+      </section>
+
+      <!-- ===================== EQUIPE ===================== -->
+      <section id="aba-equipe" hidden aria-labelledby="t-equipe">
+        <div class="p-dia"><h1 id="t-equipe">Equipe</h1></div>
+        <div class="p-cartao">
+          <h2 class="p-cartao-titulo">Cartões do elenco</h2>
+          <p class="secao-sub">É o que o cliente vê na aba Elenco do app.</p>
+          <div id="cartoes"></div>
+        </div>
+        <div class="p-cartao">
+          <h2 class="p-cartao-titulo">Quem entra no painel</h2>
+          <div id="acessos"></div>
+        </div>
+      </section>
+
+      <footer class="p-rodape">
+        <a href="./">Ver o app do cliente</a>
+        <a href="privacidade.html">Privacidade</a>
+        <button type="button" id="apagar">Apagar dados de teste</button>
+      </footer>
     </div>
-    <div class="p-dias" id="dias" role="group" aria-label="Escolher dia"></div>
-
-    <section class="p-resumo" aria-label="Resumo do dia">
-      <div class="p-num"><span>Horários</span><b id="n-total">0</b><small id="n-status"></small></div>
-      <div class="p-num"><span>Previsto</span><b id="n-valor">R$ 0</b><small id="n-feito"></small></div>
-      <div class="p-num"><span>Agenda ocupada</span><b id="n-ocup">0%</b><small id="n-livre"></small></div>
-      <div class="p-num p-proximo"><span>Próximo cliente</span><b id="n-prox">—</b><small id="n-prox-info"></small></div>
-    </section>
-
-    <section class="p-origens" aria-label="De onde vieram os horários do dia" id="origens"></section>
-
-    <div class="p-filtros" role="group" aria-label="Mostrar barbeiro" id="filtros"></div>
-
-    <section class="p-grade-caixa" id="grade-caixa" tabindex="-1" aria-labelledby="t-grade">
-      <h2 id="t-grade" class="sr-only">Agenda por barbeiro</h2>
-      <div class="p-grade" id="grade"></div>
-      <p class="vazio" id="fechado" hidden>A barbearia não abre neste dia.</p>
-    </section>
-
-    <section class="p-legenda" aria-label="Legenda">
-      <span><i class="lg lg-confirmado"></i>Confirmado</span>
-      <span><i class="lg lg-atendido"></i>Atendido</span>
-      <span><i class="lg lg-faltou"></i>Faltou</span>
-      <span><i class="lg lg-livre"></i>Livre (toque para encaixar)</span>
-      <span><i class="lg lg-exemplo"></i>Horário de exemplo</span>
-    </section>
-
-    <footer class="p-rodape">
-      <a href="./">Ver o app do cliente</a>
-      <a href="privacidade.html">Privacidade</a>
-      <button type="button" id="apagar">Apagar horários de teste</button>
-    </footer>
   </main>
 
-  <!-- detalhe do horário -->
   <dialog class="folha" id="folha-detalhe" aria-labelledby="d-nome">
     <div class="folha-corpo" id="detalhe"></div>
   </dialog>
 
-  <!-- registrar horário -->
   <dialog class="folha" id="folha-novo" aria-labelledby="t-novo">
     <form class="folha-corpo" id="form-novo" novalidate>
       <div class="folha-topo">
@@ -110,14 +184,17 @@
     <symbol id="i-dir" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-cadeado" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></g></symbol>
     <symbol id="o-app" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3" stroke-linecap="round"/></g></symbol>
     <symbol id="o-whatsapp" viewBox="0 0 24 24"><path d="M4 20l1.3-4A8 8 0 1 1 8.4 19z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 9.2c.3 2.4 2.6 4.8 5.6 5.6l1-1.4-1.9-1-1 .8a5 5 0 0 1-2.3-2.3l.8-1-1-1.9z" fill="currentColor"/></symbol>
     <symbol id="o-telefone" viewBox="0 0 24 24"><path d="M6.6 3.5 9.4 4l1.2 4-1.9 1.6a11 11 0 0 0 5.7 5.7L16 13.4l4 1.2.5 2.8a2 2 0 0 1-2.1 2.1C10.4 19 5 13.6 4.5 5.6a2 2 0 0 1 2.1-2.1z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <symbol id="o-balcao" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 10h16l-1.5-5h-13z"/><path d="M5 10v10h14V10M10 20v-5h4v5"/></g></symbol>
   </svg>
 
-  <script src="js/config.js?v=3"></script>
-  <script src="js/agenda.js?v=3"></script>
-  <script src="js/painel.js?v=3"></script>
+  <script src="js/config.js?v=4"></script>
+  <script src="js/vendor/supabase-2.45.4.min.js"></script>
+  <script src="js/nuvem.js?v=4"></script>
+  <script src="js/agenda.js?v=4"></script>
+  <script src="js/painel.js?v=4"></script>
 </body>
 </html>

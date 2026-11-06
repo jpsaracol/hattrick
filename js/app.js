@@ -9,6 +9,15 @@
   const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
   const minAgora = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 
+  const telBonito = (t) => { const d = A.soDigitos(t).slice(-11); return d.length > 6 ? `(${d.slice(0, 2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d; };
+  let tempoErro;
+  function avisarErro(txt) {
+    let el = $("#aviso-erro");
+    if (!el) { el = document.createElement("p"); el.id = "aviso-erro"; el.className = "aviso-erro"; el.setAttribute("role", "alert"); document.body.appendChild(el); }
+    el.textContent = txt; el.classList.add("visivel");
+    clearTimeout(tempoErro); tempoErro = setTimeout(() => el.classList.remove("visivel"), 5000);
+  }
+
   // ================= armazenamento de preferências =================
   const prefs = {
     ler(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -25,11 +34,16 @@
     document.querySelectorAll(".abas a").forEach((a) => (a.dataset.aba === nome ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current")));
     render[nome]();
     window.scrollTo({ top: 0 });
+    if (carregado && A.naNuvem() && (nome !== "agendar" || reserva.etapa <= 3)) {
+      A.atualizar().then(() => { if (telaAtual() === nome && (nome !== "agendar" || reserva.etapa <= 3)) render[nome](); }).catch(() => avisarErro("Sem conexão com a agenda. Confira a internet."));
+    }
     // leva o foco para o título da tela (leitores de tela anunciam a troca)
     if (navegouPeloUsuario) $(`#t-${nome}`)?.setAttribute("tabindex", "-1"), $(`#t-${nome}`)?.focus({ preventScroll: true });
     document.title = `${{ inicio: "Hat-Trick Barber Sport", servicos: "Tabela", agendar: "Agendar", elenco: "Elenco", temporada: "Sua temporada" }[nome]} · Pelotas`;
   }
   let navegouPeloUsuario = false;
+  let carregado = false;
+  const telaAtual = () => (TELAS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "inicio");
   addEventListener("hashchange", () => { navegouPeloUsuario = true; irPara(); });
 
   // ================= "Seu time": cores do app =================
@@ -73,6 +87,7 @@
       $(".time-amostra").innerHTML = time.escudo ? `<img src="${time.escudo}" alt="">` : "";
     }
     prefs.gravar("hattrick_time", time ? time.id : null);
+    if (A.naNuvem() && Nuvem.usuario && Nuvem.perfil && (Nuvem.perfil.timeId || null) !== (time?.id || null)) Nuvem.salvarPerfil({ timeId: time?.id || null }).catch(() => {});
     document.querySelectorAll(".time").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.time === (time?.id || ""))));
   }
 
@@ -92,13 +107,21 @@
   }
 
   // ================= INÍCIO =================
+  // horário da casa = do primeiro barbeiro que abre ao último que fecha; almoço só se todos param juntos
+  function casaNoDia(dia) {
+    const ex = CONFIG.barbeiros.map((b) => A.expediente(b.id, dia)).filter((e) => e.aberto);
+    if (!ex.length) return null;
+    const abre = Math.min(...ex.map((e) => e.abre)), fecha = Math.max(...ex.map((e) => e.fecha));
+    const almoco = ex.every((e) => e.almocoIni != null) ? [Math.max(...ex.map((e) => e.almocoIni)), Math.min(...ex.map((e) => e.almocoFim))] : null;
+    return { abre, fecha, almoco: almoco && almoco[0] < almoco[1] ? almoco : null };
+  }
   function statusLoja() {
-    const exp = CONFIG.expediente[new Date().getDay()];
+    const exp = casaNoDia(new Date().getDay());
     const m = minAgora();
     if (!exp) return { txt: "Fechada hoje", aberta: false };
-    if (m < A.paraMin(exp.abre)) return { txt: `Abre ${exp.abre}`, aberta: false };
-    if (m >= A.paraMin(exp.fecha)) return { txt: "Encerrada", aberta: false };
-    if (exp.almoco && m >= A.paraMin(exp.almoco[0]) && m < A.paraMin(exp.almoco[1])) return { txt: "Intervalo", aberta: false };
+    if (m < exp.abre) return { txt: `Abre ${A.paraHora(exp.abre)}`, aberta: false };
+    if (m >= exp.fecha) return { txt: "Encerrada", aberta: false };
+    if (exp.almoco && m >= exp.almoco[0] && m < exp.almoco[1]) return { txt: "Intervalo", aberta: false };
     return { txt: "Em jogo", aberta: true };
   }
   function atualizarPlacar() {
@@ -120,8 +143,8 @@
 
   function renderInicio() {
     atualizarPlacar();
-    const p = proximoLivre();
-    $("#proximo-livre").innerHTML = p
+    const p = carregado ? proximoLivre() : null;
+    $("#proximo-livre").innerHTML = !carregado ? `<p class="proximo-info">Carregando agenda…</p>` : p
       ? `<div><div class="proximo-hora">${A.paraHora(p.ini)}</div><div class="proximo-info">${A.rotuloDia(p.data)} · com ${esc(A.barbeiro(p.barbeiroId).nome)}</div></div>
          <button class="botao botao-cheio" style="width:auto" type="button" data-pegar>Pegar esse</button>`
       : `<p class="proximo-info">Sem horários nos próximos dias. Chame no WhatsApp.</p>`;
@@ -150,9 +173,9 @@
     const hoje = new Date().getDay();
     const ordem = [2, 3, 4, 5, 6, 0, 1];
     $("#horarios").innerHTML = ordem.map((d) => {
-      const e = CONFIG.expediente[d];
+      const e = casaNoDia(d);
       const cls = d === hoje ? ' class="hoje"' : "";
-      return `<dt${cls}>${DIAS[d][0].toUpperCase() + DIAS[d].slice(1)}${d === hoje ? " (hoje)" : ""}</dt><dd${cls}>${e ? `${e.abre} – ${e.fecha}` : "Fechado"}</dd>`;
+      return `<dt${cls}>${DIAS[d][0].toUpperCase() + DIAS[d].slice(1)}${d === hoje ? " (hoje)" : ""}</dt><dd${cls}>${e ? `${A.paraHora(e.abre)} – ${A.paraHora(e.fecha)}` : "Fechado"}</dd>`;
     }).join("");
     const msg = encodeURIComponent("Olá! Vim pelo app da Hat-Trick e queria marcar um horário.");
     $("#link-whats").href = `https://wa.me/${CONFIG.whatsapp}?text=${msg}`;
@@ -235,6 +258,7 @@
   }
 
   function etapaGrid(alvo) {
+    if (!carregado) { alvo.innerHTML = `<h2 class="etapa-titulo" tabindex="-1">Escolha sua posição no grid</h2><p class="vazio">Carregando horários…</p>`; return; }
     const bId = reserva.barbeiroEscolhido || null;
     const dias = A.proximosDias(reserva.servicoId, bId);
     if (!reserva.data || !dias.includes(reserva.data)) reserva.data = dias[0];
@@ -280,14 +304,24 @@
 
   function etapaDados(alvo) {
     const s = A.servico(reserva.servicoId), b = A.barbeiro(reserva.barbeiroId);
-    const salvo = (() => { try { return JSON.parse(prefs.ler("hattrick_cliente")) || {}; } catch { return {}; } })();
-    alvo.innerHTML = `<h2 class="etapa-titulo" tabindex="-1">Bandeirada</h2>
+    const nuvem = A.naNuvem();
+    const salvo = nuvem ? { nome: Nuvem.perfil?.nome || "", tel: telBonito(Nuvem.perfil?.telefone || "") }
+      : (() => { try { return JSON.parse(prefs.ler("hattrick_cliente")) || {}; } catch { return {}; } })();
+    const resumo = `<h2 class="etapa-titulo" tabindex="-1">Bandeirada</h2>
       <dl class="resumo">
         <dt>Serviço</dt><dd>${esc(s.nome)}</dd>
         <dt>Barbeiro</dt><dd>${esc(b.nome)} #${b.numero}</dd>
         <dt>Largada</dt><dd>${A.rotuloDia(reserva.data)} às ${A.paraHora(reserva.ini)}</dd>
         <dt>Valor</dt><dd>${brl(s.preco)}</dd>
-      </dl>
+      </dl>`;
+    // na nuvem, quem não entrou na conta faz login/cadastro aqui mesmo e volta para esta etapa
+    if (nuvem && !Nuvem.usuario) {
+      alvo.innerHTML = resumo + `<p class="secao-sub" style="margin-bottom:14px">Entre ou crie sua conta para confirmar. Leva menos de um minuto.</p>
+        <div id="conta-inline"></div><div class="etapa-acoes">${voltar(3)}</div>`;
+      ligarVoltar(alvo);
+      return montarConta($("#conta-inline"), { aoEntrar: () => etapaDados(alvo) });
+    }
+    alvo.innerHTML = resumo + `
       <form id="form-dados" novalidate>
         <div class="campo"><label for="f-nome">Seu nome</label>
           <input id="f-nome" name="nome" autocomplete="given-name" maxlength="40" required value="${esc(salvo.nome || "")}">
@@ -295,8 +329,8 @@
         <div class="campo"><label for="f-tel">Celular com DDD</label>
           <input id="f-tel" name="tel" type="tel" inputmode="tel" autocomplete="tel-national" maxlength="16" placeholder="(53) 9 0000-0000" required value="${esc(salvo.tel || "")}">
           <span class="erro" id="e-tel" aria-live="polite"></span></div>
-        <label class="consentimento"><input type="checkbox" id="f-ok" required>
-          <span>Concordo que a barbearia use meu nome e celular só para este agendamento. <a href="privacidade.html">Ver privacidade</a>.</span></label>
+        ${nuvem ? "" : `<label class="consentimento"><input type="checkbox" id="f-ok" required>
+          <span>Concordo que a barbearia use meu nome e celular só para este agendamento. <a href="privacidade.html">Ver privacidade</a>.</span></label>`}
         <span class="erro" id="e-ok" aria-live="polite" style="color:#ff8a80;font-size:.85rem"></span>
         <div class="etapa-acoes">${voltar(3)}<button class="botao botao-cheio" type="submit">Confirmar largada</button></div>
       </form>`;
@@ -308,7 +342,7 @@
     });
     $("#form-dados").addEventListener("submit", async (ev) => {
       ev.preventDefault();
-      const nome = $("#f-nome").value.trim(), digitos = A.soDigitos(tel.value), ok = $("#f-ok").checked;
+      const nome = $("#f-nome").value.trim(), digitos = A.soDigitos(tel.value), ok = nuvem || $("#f-ok").checked;
       $("#e-nome").textContent = nome.length < 2 ? "Escreva seu nome." : "";
       $("#e-tel").textContent = digitos.length < 10 ? "Celular com DDD, só números." : "";
       $("#e-ok").textContent = ok ? "" : "Marque a caixa para continuar.";
@@ -316,9 +350,19 @@
       if (digitos.length < 10) return tel.focus();
       if (!ok) return $("#f-ok").focus();
 
-      const r = A.criar({ data: reserva.data, ini: reserva.ini, servicoId: reserva.servicoId, barbeiroId: reserva.barbeiroId, nome, telefone: digitos });
-      if (!r.ok) { delete reserva.ini; reserva.aviso = "Esse horário acabou de ser pego. Escolha outro."; return avancar(3); }
-      prefs.gravar("hattrick_cliente", JSON.stringify({ nome, tel: tel.value }));
+      const botao = ev.submitter || $("#form-dados [type=submit]");
+      botao.disabled = true; botao.textContent = "Confirmando…";
+      if (nuvem) await A.atualizar().catch(() => {});
+      const r = await A.criar({ data: reserva.data, ini: reserva.ini, servicoId: reserva.servicoId, barbeiroId: reserva.barbeiroId, nome, telefone: digitos });
+      if (!r.ok) {
+        botao.disabled = false; botao.textContent = "Confirmar largada";
+        if (r.motivo && !/ocupado/.test(r.motivo) && r.mensagem) { $("#e-ok").textContent = r.mensagem; return; }
+        delete reserva.ini; reserva.aviso = r.mensagem || "Esse horário acabou de ser pego. Escolha outro."; return avancar(3);
+      }
+      if (nuvem) {
+        const p = Nuvem.perfil || {};
+        if (p.nome !== nome || p.telefone !== digitos) Nuvem.salvarPerfil({ nome, telefone: digitos }).catch(() => {});
+      } else prefs.gravar("hattrick_cliente", JSON.stringify({ nome, tel: tel.value }));
       reserva.confirmado = r.agendamento;
       await luzesDeLargada();
       avancar(5);
@@ -353,7 +397,7 @@
       <h2 class="etapa-titulo" tabindex="-1" style="font-size:2.6rem;margin:0">Horário garantido!</h2>
       <div class="codigo" aria-label="Código ${a.codigo.split("").join(" ")}">${a.codigo}</div>
       <p>${esc(s.nome)} com ${esc(b.nome)}<br><strong>${A.rotuloDia(a.data)} às ${A.paraHora(a.ini)}</strong></p>
-      <p class="nota">+1 cesta na sua temporada. Isto é uma demonstração: nenhum atendimento real foi marcado.</p>
+      <p class="nota">+1 cesta na sua temporada.${A.naNuvem() ? " O horário já aparece na agenda do barbeiro." : " Isto é uma demonstração: nenhum atendimento real foi marcado."}</p>
       <div class="acoes">
         <a class="botao botao-linha" href="${linkCalendario(a)}" download="hat-trick-${a.codigo}.ics">Salvar na agenda</a>
         <a class="botao botao-linha" href="#temporada">Ver temporada</a>
@@ -386,8 +430,18 @@
   let cancelando = null;
   function renderTemporada() {
     const meta = CONFIG.metaTemporada;
-    // só o que o próprio cliente marcou pelo app (o painel do barbeiro usa o mesmo armazenamento na demo)
-    const todos = A.carregar().filter((a) => a.status !== "cancelado" && (a.origem || "app") === "app");
+    if (A.naNuvem() && !Nuvem.usuario) {
+      $("#temporada").innerHTML = `<div class="quadra"><p class="rotulo">Temporada ${new Date().getFullYear()}</p>
+        <p style="margin-top:10px">Entre na sua conta para ver suas cestas e seus horários marcados.</p></div>
+        <div id="conta-temporada" style="margin-top:16px"></div>`;
+      $("#meus-horarios").innerHTML = "";
+      $("#t-proximos").hidden = true;
+      return montarConta($("#conta-temporada"), { aoEntrar: renderTemporada });
+    }
+    $("#t-proximos").hidden = false;
+    $("#nota-dados").hidden = A.naNuvem();
+    // só o que o próprio cliente marcou pelo app (no modo demonstração o painel usa o mesmo armazenamento)
+    const todos = A.carregar().filter((a) => !["cancelado", "faltou"].includes(a.status) && (a.origem || "app") === "app");
     const cestas = todos.length % meta, premios = Math.floor(todos.length / meta);
     const contar = (campo) => { const c = {}; todos.forEach((a) => (c[a[campo]] = (c[a[campo]] || 0) + 1)); return Object.entries(c).sort((x, y) => y[1] - x[1])[0]?.[0]; };
     const favB = contar("barbeiroId"), favS = contar("servicoId");
@@ -423,17 +477,184 @@
     lista.onclick = (e) => {
       const b = e.target.closest("[data-cancelar]");
       if (!b) return;
-      if (cancelando === b.dataset.cancelar) { A.cancelar(b.dataset.cancelar); cancelando = null; }
-      else cancelando = b.dataset.cancelar;
+      if (cancelando === b.dataset.cancelar) {
+        b.disabled = true; b.textContent = "Cancelando…";
+        A.cancelar(b.dataset.cancelar).then((r) => { cancelando = null; renderTemporada(); if (!r.ok) avisarErro(r.mensagem); });
+        return;
+      }
+      cancelando = b.dataset.cancelar;
       renderTemporada();
       lista.querySelector(`[data-cancelar="${cancelando}"]`)?.focus();
     };
   }
 
+  // ================= CONTA (login do cliente) =================
+  let contadorConta = 0;
+  // Formulário de entrar / criar conta / recuperar senha. Usado na folha da conta e dentro do agendamento.
+  function montarConta(el, { aoEntrar, modo = "entrar" } = {}) {
+    const p = `c${++contadorConta}-`;
+    const campo = (id, rotulo, attrs) => `<div class="campo"><label for="${p}${id}">${rotulo}</label><input id="${p}${id}" ${attrs}></div>`;
+    const desenhar = (m, msg = "", tipo = "") => {
+      const abas = m === "recuperar" ? "" : `<div class="conta-abas" role="group" aria-label="Entrar ou criar conta">
+          <button type="button" data-modo="entrar" aria-pressed="${m === "entrar"}">Entrar</button>
+          <button type="button" data-modo="criar" aria-pressed="${m === "criar"}">Criar conta</button></div>`;
+      const formularios = {
+        entrar: `<form data-form="entrar" novalidate>
+          ${campo("email", "E-mail", 'type="email" autocomplete="email" inputmode="email" required')}
+          ${campo("senha", "Senha", 'type="password" autocomplete="current-password" required')}
+          <button class="botao botao-cheio" type="submit">Entrar</button>
+          <button class="conta-link" type="button" data-modo="recuperar">Esqueci minha senha</button></form>`,
+        criar: `<form data-form="criar" novalidate>
+          ${campo("nome", "Seu nome", 'autocomplete="given-name" maxlength="40" required')}
+          ${campo("tel", "Celular com DDD", 'type="tel" inputmode="tel" autocomplete="tel-national" maxlength="16" placeholder="(53) 9 0000-0000" required')}
+          ${campo("email", "E-mail", 'type="email" autocomplete="email" inputmode="email" required')}
+          ${campo("senha", "Crie uma senha (mínimo 8 caracteres)", 'type="password" autocomplete="new-password" minlength="8" required')}
+          <label class="consentimento"><input type="checkbox" id="${p}ok" required>
+            <span>Concordo que a Hat-Trick guarde meu nome, celular e e-mail para marcar e avisar sobre meus horários. <a href="privacidade.html" target="_blank">Ver privacidade</a>.</span></label>
+          <button class="botao botao-cheio" type="submit">Criar conta</button></form>`,
+        recuperar: `<form data-form="recuperar" novalidate>
+          <p class="secao-sub" style="margin-bottom:12px">Mandamos um link para você criar uma senha nova.</p>
+          ${campo("email", "E-mail da conta", 'type="email" autocomplete="email" inputmode="email" required')}
+          <button class="botao botao-cheio" type="submit">Enviar link</button>
+          <button class="conta-link" type="button" data-modo="entrar">Voltar para entrar</button></form>`,
+      };
+      el.innerHTML = `<div class="conta">${abas}${formularios[m]}<p class="conta-msg" data-tipo="${tipo}" role="status" aria-live="polite">${esc(msg)}</p></div>`;
+      const tel = el.querySelector(`#${p}tel`);
+      tel?.addEventListener("input", () => { tel.value = telBonito(tel.value); });
+      el.querySelectorAll("[data-modo]").forEach((b) => (b.onclick = () => { desenhar(b.dataset.modo); el.querySelector("input")?.focus(); }));
+      el.querySelector("form").addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const v = (id) => el.querySelector(`#${p}${id}`)?.value.trim() || "";
+        const mostrar = (texto, t = "erro") => { const m = el.querySelector(".conta-msg"); m.textContent = texto; m.dataset.tipo = t; };
+        const email = v("email");
+        if (!/^\S+@\S+\.\S+$/.test(email)) { mostrar("Escreva um e-mail válido."); return el.querySelector(`#${p}email`).focus(); }
+        if (m === "criar") {
+          if (v("nome").length < 2) { mostrar("Escreva seu nome."); return el.querySelector(`#${p}nome`).focus(); }
+          if (A.soDigitos(v("tel")).length < 10) { mostrar("Celular com DDD, só números."); return tel.focus(); }
+        }
+        if (m !== "recuperar" && el.querySelector(`#${p}senha`).value.length < (m === "criar" ? 8 : 1)) {
+          mostrar(m === "criar" ? "A senha precisa ter pelo menos 8 caracteres." : "Escreva sua senha."); return el.querySelector(`#${p}senha`).focus();
+        }
+        if (m === "criar" && !el.querySelector(`#${p}ok`).checked) { mostrar("Marque a caixa para continuar."); return el.querySelector(`#${p}ok`).focus(); }
+        const botao = el.querySelector("[type=submit]"), texto = botao.textContent;
+        botao.disabled = true; botao.textContent = "Aguarde…";
+        const senha = el.querySelector(`#${p}senha`)?.value;
+        const r = m === "entrar" ? await Nuvem.entrar(email, senha)
+          : m === "criar" ? await Nuvem.cadastrar({ nome: v("nome"), telefone: v("tel"), email, senha })
+          : await Nuvem.recuperarSenha(email);
+        botao.disabled = false; botao.textContent = texto;
+        if (!r.ok) return mostrar(r.mensagem);
+        if (m === "recuperar") return desenhar("entrar", "Pronto! Confira seu e-mail e abra o link para criar a senha nova.", "ok");
+        if (r.confirmar) return desenhar("entrar", "Conta criada! Confirme pelo link que mandamos para o seu e-mail e depois entre aqui.", "ok");
+        await A.atualizar().catch(() => {});
+        montarBotaoConta();
+        aoEntrar?.();
+      });
+    };
+    desenhar(modo);
+  }
+
+  function montarBotaoConta() {
+    const b = $("#abrir-conta");
+    if (!b) return;
+    b.hidden = !A.naNuvem();
+    if (b.hidden) return;
+    const nome = Nuvem.perfil?.nome || "";
+    b.innerHTML = Nuvem.usuario
+      ? `<span class="conta-avatar" aria-hidden="true">${esc((nome[0] || "?").toUpperCase())}</span><span class="sr-only">Sua conta</span>`
+      : `<svg aria-hidden="true"><use href="#i-pessoa"/></svg><span>Entrar</span>`;
+    b.classList.toggle("logado", !!Nuvem.usuario);
+    b.onclick = () => abrirConta();
+  }
+
+  function abrirConta({ novaSenha = false } = {}) {
+    const folha = $("#folha-conta"), corpo = $("#conta-corpo");
+    const fechar = () => folha.close();
+    if (novaSenha) {
+      corpo.innerHTML = `<form novalidate id="form-nova-senha">
+        <div class="campo"><label for="nova-senha">Senha nova (mínimo 8 caracteres)</label><input id="nova-senha" type="password" autocomplete="new-password" minlength="8" required></div>
+        <p class="conta-msg" role="status" aria-live="polite"></p>
+        <button class="botao botao-cheio" type="submit">Salvar senha</button></form>`;
+      $("#form-nova-senha").onsubmit = async (e) => {
+        e.preventDefault();
+        const s = $("#nova-senha").value, msg = corpo.querySelector(".conta-msg");
+        if (s.length < 8) { msg.textContent = "A senha precisa ter pelo menos 8 caracteres."; return; }
+        const r = await Nuvem.novaSenha(s);
+        msg.textContent = r.ok ? "Senha trocada. Você já está dentro." : r.mensagem;
+        msg.dataset.tipo = r.ok ? "ok" : "erro";
+        if (r.ok) setTimeout(fechar, 1200);
+      };
+    } else if (Nuvem.usuario) {
+      const pf = Nuvem.perfil || {};
+      let confirmandoApagar = false;
+      corpo.innerHTML = `
+        <p class="secao-sub">${esc(Nuvem.usuario.email || "")}</p>
+        <form novalidate id="form-perfil" style="margin-top:14px">
+          <div class="campo"><label for="pf-nome">Nome</label><input id="pf-nome" maxlength="40" autocomplete="given-name" value="${esc(pf.nome || "")}"></div>
+          <div class="campo"><label for="pf-tel">Celular</label><input id="pf-tel" type="tel" inputmode="tel" maxlength="16" autocomplete="tel-national" value="${esc(telBonito(pf.telefone || ""))}"></div>
+          <p class="conta-msg" role="status" aria-live="polite"></p>
+          <button class="botao botao-cheio" type="submit">Salvar dados</button>
+        </form>
+        <div class="conta-rodape">
+          <button class="botao botao-linha" type="button" id="sair">Sair da conta</button>
+          <button class="conta-link conta-perigo" type="button" id="apagar-conta">Apagar minha conta</button>
+        </div>`;
+      $("#pf-tel").addEventListener("input", (e) => { e.target.value = telBonito(e.target.value); });
+      $("#form-perfil").onsubmit = async (e) => {
+        e.preventDefault();
+        const msg = corpo.querySelector(".conta-msg");
+        const r = await Nuvem.salvarPerfil({ nome: $("#pf-nome").value, telefone: $("#pf-tel").value });
+        msg.textContent = r.ok ? "Dados salvos." : r.mensagem; msg.dataset.tipo = r.ok ? "ok" : "erro";
+        montarBotaoConta();
+      };
+      $("#sair").onclick = async () => { await Nuvem.sair(); await A.atualizar().catch(() => {}); montarBotaoConta(); fechar(); render[telaAtual()](); };
+      $("#apagar-conta").onclick = async (e) => {
+        if (!confirmandoApagar) { confirmandoApagar = true; e.target.textContent = "Toque de novo: apaga a conta e cancela seus horários"; return; }
+        const r = await Nuvem.apagarConta();
+        if (!r.ok) return avisarErro(r.mensagem);
+        await A.atualizar().catch(() => {}); montarBotaoConta(); fechar(); render[telaAtual()]();
+      };
+    } else {
+      montarConta(corpo, { aoEntrar: () => { fechar(); render[telaAtual()](); } });
+    }
+    $("#t-conta").textContent = novaSenha ? "Senha nova" : Nuvem.usuario ? `Olá, ${(Nuvem.perfil?.nome || "").split(" ")[0] || "você"}` : "Sua conta";
+    if (!folha.open) folha.showModal();
+  }
+
   // ================= início =================
-  montarTimes();
-  aplicarTime(prefs.ler("hattrick_time"));
-  irPara();
+  const comAte = (p, ms) => Promise.race([p, new Promise((_, nao) => setTimeout(() => nao(new Error("tempo")), ms))]);
+  async function comecar() {
+    montarTimes();
+    aplicarTime(prefs.ler("hattrick_time"));
+    if (A.naNuvem()) {
+      // mostra o app na hora; a agenda chega em seguida
+      montarBotaoConta();
+      irPara();
+      try {
+        await comAte(Nuvem.iniciarSessao(), 8000);
+        montarBotaoConta();
+        await comAte(A.iniciar(), 12000);
+      } catch (e) {
+        avisarErro("Não deu para carregar a agenda. Confira a internet e abra o app de novo.");
+      }
+      carregado = true;
+    } else {
+      await A.iniciar();
+      carregado = true;
+    }
+    montarBotaoConta();
+    irPara();
+    if (A.naNuvem()) {
+      Nuvem.aoMudarSessao((evento) => {
+        if (evento === "PASSWORD_RECOVERY") return abrirConta({ novaSenha: true });
+        if (Nuvem.perfil?.timeId) aplicarTime(Nuvem.perfil.timeId);
+        montarBotaoConta();
+        A.atualizar().then(() => { if (!(telaAtual() === "agendar" && reserva.etapa >= 4)) render[telaAtual()](); }).catch(() => {});
+      });
+      Nuvem.aoMudarAgenda(() => A.atualizar().then(() => { const t = telaAtual(); if (t === "temporada" || t === "inicio") render[t](); }));
+    }
+  }
+  comecar();
   setInterval(() => { if (!$("#tela-inicio").hidden) atualizarPlacar(); }, 30000);
 
   if ("serviceWorker" in navigator && location.protocol !== "file:") {

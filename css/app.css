@@ -343,3 +343,30 @@ main { width: min(100%, 640px); margin: 0 auto; padding: 0 16px; outline: none; 
 /* escudos sobre um círculo claro: logos escuros (Mercedes, Corinthians) continuam visíveis */
 .time img[src*="escudos"], .time-amostra img[src*="escudos"] { background: var(--giz); border-radius: 50%; padding: 3px; }
 .time img { width: 32px; height: 32px; border-radius: 50%; }
+
+/* ---------- conta ---------- */
+.topo-acoes { display: flex; align-items: center; gap: 8px; }
+.botao-conta { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--linha); background: var(--superficie); cursor: pointer; font-size: 0.85rem; }
+.botao-conta svg { width: 18px; height: 18px; }
+.botao-conta.logado { padding: 3px; }
+.botao-conta[hidden] { display: none; }
+.conta-avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--limao); color: var(--fundo); font: 700 1.05rem/1 var(--display); }
+.conta-abas { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 4px 0 18px; border-radius: 12px; background: var(--fundo); }
+.conta-abas button { min-height: 42px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font: 700 1rem/1 var(--display); text-transform: uppercase; letter-spacing: 0.05em; color: var(--giz-2); }
+.conta-abas button[aria-pressed="true"] { background: var(--superficie-2); color: var(--giz); box-shadow: 0 1px 2px rgb(0 0 0 / .3); }
+.conta form .botao-cheio { margin-top: 4px; }
+.conta-link { display: block; margin: 14px auto 0; background: none; border: 0; padding: 6px; color: var(--acento-claro); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font-size: 0.9rem; }
+.conta-msg { margin-top: 12px; font-size: 0.9rem; min-height: 1.4em; }
+.conta-msg[data-tipo="erro"] { color: #ffb4a8; }
+.conta-msg[data-tipo="ok"] { color: #8be3a8; }
+.conta-rodape { display: grid; gap: 6px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--linha); }
+.conta-perigo { color: #ff9a9a; }
+.aviso-erro { position: fixed; left: 50%; top: 76px; z-index: 70; translate: -50% -10px; max-width: min(92vw, 440px); padding: 12px 16px; border-radius: 12px; background: #4a1f2c; color: #fff; font-size: 0.92rem; box-shadow: 0 8px 24px rgb(0 0 0 / .4); opacity: 0; pointer-events: none; transition: opacity .2s ease, translate .25s cubic-bezier(.2,.8,.2,1); }
+.aviso-erro.visivel { opacity: 1; translate: -50% 0; }
+
+.marca-texto strong { white-space: nowrap; }
+@media (max-width: 430px) {
+  .topo:has(.botao-conta:not([hidden])) .marca-texto small { display: none; }
+  .topo:has(.botao-conta:not([hidden])) .time-nome { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .topo:has(.botao-conta:not([hidden])) .botao-time { padding: 6px; }
+}

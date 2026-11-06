@@ -1,6 +1,9 @@
 // Tudo que muda de uma barbearia para outra fica aqui.
 // Serviços, preços, barbeiros e horários são EXEMPLOS até o dono confirmar.
 const CONFIG = {
+  // Supabase: cole aqui a "Project URL" e a chave "anon public" (Project Settings → API).
+  // Vazio = modo demonstração (dados só no aparelho, com horários de exemplo).
+  supabase: { url: "", chave: "" },
   nome: "Hat-Trick",
   nomeCompleto: "Hat-Trick Barber Sport",
   cidade: "Pelotas/RS",
